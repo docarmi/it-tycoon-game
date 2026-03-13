@@ -1,0 +1,632 @@
+import express from "express";
+import { createServer as createViteServer } from "vite";
+import { WebSocketServer, WebSocket } from "ws";
+import http from "http";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// --- Game Logic Types ---
+
+type Role = 
+  | "Directeur de production"
+  | "Directeur adjoint"
+  | "Chargée de projet"
+  | "Programmeur"
+  | "Ingenieur informaticien";
+
+interface Benefit {
+  id: string;
+  name: string;
+  costPerEmployee: number;
+  attractiveness: number;
+}
+
+const BENEFITS: Benefit[] = [
+  { id: "remote", name: "Télétravail 100%", costPerEmployee: 100, attractiveness: 20 },
+  { id: "insurance", name: "Assurance Santé Premium", costPerEmployee: 300, attractiveness: 15 },
+  { id: "flexible", name: "Horaires Flexibles", costPerEmployee: 50, attractiveness: 10 },
+  { id: "gym", name: "Abonnement Sport", costPerEmployee: 40, attractiveness: 5 },
+  { id: "bonus", name: "Bonus Annuel", costPerEmployee: 500, attractiveness: 25 },
+];
+
+interface Contract {
+  id: string;
+  title: string;
+  requiredCapacity: number;
+  monthlyRevenue: number;
+  duration: number; // Initial duration in weeks
+  remainingWeeks: number; // Weeks left until deadline
+  workload: number; // Total points to complete
+  progress: number; // Points completed
+  requiredRoles: Role[];
+  penalty: number; // Fine per week late
+}
+
+interface ChatMessage {
+  sender: 'player' | 'employee';
+  text: string;
+  timestamp: number;
+}
+
+interface Employee {
+  id: string;
+  name: string;
+  role: Role;
+  seniority: "Stagiaire" | "Junior" | "Intermédiaire" | "Sénior";
+  avatarUrl: string;
+  minSalary: number;
+  preferredBenefits: string[]; // IDs of benefits they like
+  currentEmployerId: string | null;
+  isInternational?: boolean;
+  chatHistory: ChatMessage[];
+  productivityHistory: number[];
+  resignationNotice: number | null; // null if not resigning, 1 if notice given
+}
+
+interface Player {
+  id: string;
+  companyName: string;
+  money: number;
+  employees: Employee[];
+  benefits: string[]; // IDs of offered benefits
+  activeContracts: Contract[];
+  lastRevenue: number;
+  lastExpenses: number;
+  weeksAtRisk: number;
+  isUnderTutelage: boolean;
+  targetedRecruitCount: number;
+  totalHired: number;
+  totalFired: number;
+  customerSatisfaction: number;
+  resignedThisWeek: Employee[]; // Full objects of employees who resigned this week
+}
+
+// --- Initial State ---
+
+let players: Map<string, Player> = new Map();
+let candidates: Employee[] = [];
+let availableContracts: Contract[] = [];
+let currentWeek = 1;
+const MAX_WEEKS = 12; // 3 months
+const ABSENTEEISM_RATE = 0.12;
+
+const ROLES: Role[] = [
+  "Directeur de production",
+  "Directeur adjoint",
+  "Chargée de projet",
+  "Programmeur",
+  "Ingenieur informaticien"
+];
+
+const ROLE_CONFIG: Record<Role, { min: number; max: number; capacity: number }> = {
+  "Directeur de production": { min: 6000, max: 12000, capacity: 50 },
+  "Directeur adjoint": { min: 5000, max: 9000, capacity: 40 },
+  "Programmeur": { min: 3000, max: 7000, capacity: 20 },
+  "Chargée de projet": { min: 3000, max: 5000, capacity: 30 },
+  "Ingenieur informaticien": { min: 6000, max: 11000, capacity: 25 }
+};
+
+const ROLE_CAPACITY: Record<Role, number> = {
+  "Directeur de production": ROLE_CONFIG["Directeur de production"].capacity,
+  "Directeur adjoint": ROLE_CONFIG["Directeur adjoint"].capacity,
+  "Chargée de projet": ROLE_CONFIG["Chargée de projet"].capacity,
+  "Programmeur": ROLE_CONFIG["Programmeur"].capacity,
+  "Ingenieur informaticien": ROLE_CONFIG["Ingenieur informaticien"].capacity
+};
+
+const NAMES = ["Alice", "Bob", "Charlie", "David", "Eve", "Frank", "Grace", "Heidi", "Ivan", "Judy", "Kevin", "Laura", "Mallory", "Niaj", "Olivia", "Peggy", "Quentin", "Rupert", "Sybil", "Trent", "Uma", "Victor", "Wendy", "Xavier", "Yvonne", "Zelda"];
+
+function generateCandidate(isInternational: boolean = false, forcedRole?: Role, forcedSeniority?: "Stagiaire" | "Junior" | "Intermédiaire" | "Sénior"): Employee {
+  const role = forcedRole || ROLES[Math.floor(Math.random() * ROLES.length)];
+  const config = ROLE_CONFIG[role];
+  
+  const rand = Math.random();
+  let seniority: "Stagiaire" | "Junior" | "Intermédiaire" | "Sénior" = forcedSeniority || "Junior";
+  let salary = config.min;
+  
+  if (!forcedSeniority) {
+    if (rand < 0.2) {
+      seniority = "Stagiaire";
+      salary = config.min * 0.5;
+    } else if (rand < 0.5) {
+      seniority = "Junior";
+      salary = config.min;
+    } else if (rand < 0.8) {
+      seniority = "Intermédiaire";
+      salary = config.min + (config.max - config.min) * 0.5;
+    } else {
+      seniority = "Sénior";
+      salary = config.max;
+    }
+  } else {
+    // Set salary based on forced seniority
+    switch (forcedSeniority) {
+      case "Stagiaire": salary = config.min * 0.5; break;
+      case "Junior": salary = config.min; break;
+      case "Intermédiaire": salary = config.min + (config.max - config.min) * 0.5; break;
+      case "Sénior": salary = config.max; break;
+    }
+  }
+
+  // Add a small random variation (+/- 5%)
+  const variation = 0.95 + Math.random() * 0.1;
+  let finalSalary = Math.floor(salary * variation);
+
+  // Specific bonus for Senior Directeur de production
+  if (role === "Directeur de production" && seniority === "Sénior") {
+    finalSalary += 1000 + Math.floor(Math.random() * 2000); // Significant bonus
+  }
+
+  const preferredCount = 1 + Math.floor(Math.random() * 3);
+  const preferred = [...BENEFITS].sort(() => 0.5 - Math.random()).slice(0, preferredCount).map(b => b.id);
+  
+  const seed = Math.random().toString(36).substring(7);
+  const avatarUrl = `https://picsum.photos/seed/${seed}/200/200`;
+
+  return {
+    id: Math.random().toString(36).substr(2, 9),
+    name: (NAMES[Math.floor(Math.random() * NAMES.length)] + " " + String.fromCharCode(65 + Math.floor(Math.random() * 26)) + ".") + (isInternational ? " 🌍" : ""),
+    role,
+    seniority,
+    avatarUrl,
+    minSalary: finalSalary,
+    preferredBenefits: preferred,
+    currentEmployerId: null,
+    isInternational,
+    chatHistory: [],
+    productivityHistory: [],
+    resignationNotice: null
+  };
+}
+
+function generateContract(): Contract {
+  const titles = ["Développement App Mobile", "Audit Sécurité Cloud", "Migration Base de Données", "IA Prédictive Ventes", "Refonte Site E-commerce", "Support IT Niveau 3"];
+  const title = titles[Math.floor(Math.random() * titles.length)];
+  const requiredCapacity = 20 + Math.floor(Math.random() * 150);
+  // Increased revenue multiplier from 150 to 450 to ensure profitability
+  const monthlyRevenue = requiredCapacity * 450 + Math.floor(Math.random() * 10000);
+  const duration = 4 + Math.floor(Math.random() * 8); // 4 to 12 weeks
+  
+  // Workload is based on capacity and duration
+  const workload = requiredCapacity * duration;
+  
+  // Pick 1-2 required roles for the contract
+  const rolesCount = 1 + Math.floor(Math.random() * 2);
+  const requiredRoles = [...ROLES].sort(() => 0.5 - Math.random()).slice(0, rolesCount);
+
+  return {
+    id: Math.random().toString(36).substr(2, 9),
+    title,
+    requiredCapacity,
+    monthlyRevenue,
+    duration,
+    remainingWeeks: duration,
+    workload,
+    progress: 0,
+    requiredRoles,
+    penalty: Math.floor(monthlyRevenue * 0.1) // 10% penalty per week late
+  };
+}
+
+// Populate initial candidates (Limited Market)
+for (let i = 0; i < 8; i++) {
+  candidates.push(generateCandidate(false));
+}
+for (let i = 0; i < 4; i++) {
+  availableContracts.push(generateContract());
+}
+
+// --- Server Setup ---
+
+async function startServer() {
+  const app = express();
+  const server = http.createServer(app);
+  server.on('error', (err) => {
+    console.error('Server error:', err);
+  });
+  const wss = new WebSocketServer({ server });
+  const PORT = 3000;
+  // Game Logic: Process one week
+  function processOneWeek() {
+    if (currentWeek >= MAX_WEEKS) return;
+
+    players.forEach((player, id) => {
+      player.resignedThisWeek = [];
+      
+      // 0. Handle Resignations (at the start of the week processing)
+      const remainingEmployees: Employee[] = [];
+      player.employees.forEach(emp => {
+        if (emp.resignationNotice !== null) {
+          emp.resignationNotice--;
+          if (emp.resignationNotice <= 0) {
+            player.resignedThisWeek.push(emp);
+            // Employee leaves
+            return;
+          }
+        }
+        
+        // Check for new resignations
+        // Poor conditions: only money (0 or 1 benefit) or under tutelage
+        const hasPoorConditions = player.benefits.length <= 1;
+        const isAtRisk = player.isUnderTutelage || hasPoorConditions;
+        
+        if (isAtRisk && emp.resignationNotice === null) {
+          // Chance to resign: 15% if poor conditions, 30% if under tutelage
+          const resignationChance = player.isUnderTutelage ? 0.3 : 0.15;
+          if (Math.random() < resignationChance) {
+            emp.resignationNotice = 1; // 1 week notice
+          }
+        }
+        
+        remainingEmployees.push(emp);
+      });
+      player.employees = remainingEmployees;
+
+      if (player.isUnderTutelage) {
+        // Even if under tutelage, we still processed resignations above
+        // but we might want to skip the rest of the business logic if they are truly "blocked"
+        // However, the current code allows them to continue until they hit the limit.
+        // Let's keep the return if they are under tutelage for the rest of the logic.
+        return;
+      }
+
+      let weeklyRevenue = 0;
+      let weeklyPayroll = 0;
+      let weeklyPenalty = 0;
+      let weeklySatisfactionChange = 0;
+
+      // 1. Calculate Payroll (Weekly base)
+      let weeklyPayrollBase = 0;
+      player.employees.forEach(emp => {
+        const multiplier = emp.isInternational ? 2 : 1;
+        let empMonthlyCost = emp.minSalary;
+        player.benefits.forEach(bId => {
+          const benefit = BENEFITS.find(b => b.id === bId);
+          if (benefit) empMonthlyCost += benefit.costPerEmployee;
+        });
+        weeklyPayrollBase += (empMonthlyCost * multiplier) / 4;
+      });
+
+      // Payroll is paid every 2 weeks
+      const isPayDay = currentWeek % 2 === 0;
+      const payrollToDeduct = isPayDay ? weeklyPayrollBase * 2 : 0;
+
+      // 2. Calculate Team Productivity (Points per week)
+      const SENIORITY_MULTIPLIER = {
+        "Sénior": 1.5,
+        "Intermédiaire": 1.2,
+        "Junior": 1.0,
+        "Stagiaire": 0.5
+      };
+
+      let totalTeamProductivity = 0;
+      player.employees.forEach(emp => {
+        const baseCap = ROLE_CAPACITY[emp.role] || 0;
+        // Apply absenteeism rate to individual productivity
+        const empProductivity = baseCap * SENIORITY_MULTIPLIER[emp.seniority] * (1 - ABSENTEEISM_RATE);
+        totalTeamProductivity += empProductivity;
+        
+        if (!emp.productivityHistory) emp.productivityHistory = [];
+        emp.productivityHistory.push(empProductivity);
+        // Keep only last 12 weeks
+        if (emp.productivityHistory.length > 12) emp.productivityHistory.shift();
+      });
+
+      // 3. Process Contracts and Calculate Revenue based on Progress
+      const totalRequiredCapacity = player.activeContracts.reduce((acc, c) => acc + c.requiredCapacity, 0);
+      const completedContracts: string[] = [];
+
+      player.activeContracts.forEach(contract => {
+        const share = contract.requiredCapacity / (totalRequiredCapacity || 1);
+        const contractProductivity = totalTeamProductivity * share;
+        
+        // Actual progress made this week (capped by remaining workload)
+        const actualProgress = Math.min(contractProductivity, contract.workload - contract.progress);
+        
+        // Revenue is now proportional to progress: (MonthlyRevenue / (4 * RequiredCapacity)) * actualProgress
+        // This ensures that faster teams get paid faster and hiring more staff increases immediate revenue.
+        const revenuePerPoint = contract.monthlyRevenue / (4 * contract.requiredCapacity);
+        weeklyRevenue += actualProgress * revenuePerPoint;
+
+        contract.progress += actualProgress;
+        contract.remainingWeeks -= 1;
+        
+        if (contract.remainingWeeks < 0) {
+          weeklyPenalty += contract.penalty;
+          weeklySatisfactionChange -= 2; // Penalty for being late
+        }
+
+        if (contract.progress >= contract.workload) {
+          completedContracts.push(contract.id);
+          // Bonus satisfaction for completing on time or early
+          if (contract.remainingWeeks >= 0) {
+            weeklySatisfactionChange += 5;
+          } else {
+            weeklySatisfactionChange += 1; // Small boost even if late, because it's done
+          }
+        }
+      });
+
+      // Update satisfaction
+      player.customerSatisfaction = Math.max(0, Math.min(100, player.customerSatisfaction + weeklySatisfactionChange));
+
+      if (completedContracts.length > 0) {
+        player.employees.forEach(emp => {
+          if (emp.seniority === "Stagiaire") {
+            emp.seniority = "Junior";
+            emp.minSalary = Math.floor(emp.minSalary / 0.5);
+          }
+        });
+      }
+
+      player.activeContracts = player.activeContracts.filter(c => c.progress < c.workload);
+      
+      // Update Treasury
+      player.money += (weeklyRevenue - payrollToDeduct - weeklyPenalty);
+      player.lastRevenue = weeklyRevenue;
+      player.lastExpenses = payrollToDeduct + weeklyPenalty;
+
+      const debt = player.money < 0 ? Math.abs(player.money) : 0;
+      const debtLimit = Math.max(5000, weeklyPayrollBase * 4); // 1 month of payroll
+
+      if (debt >= debtLimit && weeklyPayroll > 0) {
+        player.weeksAtRisk++;
+        if (player.weeksAtRisk >= 6) {
+          player.isUnderTutelage = true;
+        }
+      } else {
+        player.weeksAtRisk = 0;
+      }
+    });
+
+    // Market updates (more frequent since it's turn-based)
+    if (candidates.length < 12 && Math.random() > 0.3) {
+      candidates.push(generateCandidate(false));
+    }
+    if (availableContracts.length < 6 && Math.random() > 0.3) {
+      availableContracts.push(generateContract());
+    }
+
+    currentWeek++;
+    broadcastState();
+  }
+
+  function broadcastState() {
+    const state = {
+      players: Array.from(players.entries()),
+      candidates,
+      availableContracts,
+      benefits: BENEFITS,
+      currentWeek,
+      maxWeeks: MAX_WEEKS,
+      roleCapacity: ROLE_CAPACITY
+    };
+    const message = JSON.stringify({ type: "UPDATE", data: state });
+    wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(message);
+      }
+    });
+  }
+
+  wss.on("connection", (ws) => {
+    let playerId: string | null = null;
+
+    ws.on("message", (data) => {
+      try {
+        const message = JSON.parse(data.toString());
+
+        switch (message.type) {
+        case "JOIN":
+          if (message.playerId && players.has(message.playerId)) {
+            playerId = message.playerId;
+            const player = players.get(playerId)!;
+            if (message.companyName) player.companyName = message.companyName;
+          } else {
+            playerId = Math.random().toString(36).substr(2, 9);
+            players.set(playerId, {
+              id: playerId,
+              companyName: message.companyName || "Entreprise Sans Nom",
+              money: 50000,
+              employees: [],
+              benefits: [],
+              activeContracts: [],
+              lastRevenue: 0,
+              lastExpenses: 0,
+              weeksAtRisk: 0,
+              isUnderTutelage: false,
+              targetedRecruitCount: 0,
+              totalHired: 0,
+              totalFired: 0,
+              customerSatisfaction: 100,
+              resignedThisWeek: []
+            });
+          }
+          ws.send(JSON.stringify({ type: "INIT", playerId, benefits: BENEFITS, roles: ROLES }));
+          broadcastState();
+          break;
+
+        case "SEND_CHAT":
+          if (playerId && players.has(playerId)) {
+            const player = players.get(playerId)!;
+            const employee = player.employees.find(e => e.id === message.employeeId);
+            if (employee) {
+              if (!employee.chatHistory) employee.chatHistory = [];
+              employee.chatHistory.push({
+                sender: message.sender,
+                text: message.text,
+                timestamp: Date.now()
+              });
+              // Keep only last 50 messages
+              if (employee.chatHistory.length > 50) employee.chatHistory.shift();
+              broadcastState();
+            }
+          }
+          break;
+
+        case "APPLY_CONTRACT":
+          if (playerId && players.has(playerId)) {
+            const player = players.get(playerId)!;
+            if (player.isUnderTutelage) return;
+
+            const contractIndex = availableContracts.findIndex(c => c.id === message.contractId);
+            if (contractIndex !== -1) {
+              const contract = availableContracts[contractIndex];
+              
+              // 1. Calculate current capacity
+              const SENIORITY_MULTIPLIER = {
+                "Sénior": 1.5,
+                "Intermédiaire": 1.2,
+                "Junior": 1.0,
+                "Stagiaire": 0.5
+              };
+
+              let currentCapacity = 0;
+              player.employees.forEach(emp => {
+                const cap = ROLE_CAPACITY[emp.role] || 0;
+                currentCapacity += cap * SENIORITY_MULTIPLIER[emp.seniority];
+              });
+
+              // 2. Check if enough capacity remains
+              const usedCapacity = player.activeContracts.reduce((acc, c) => acc + c.requiredCapacity, 0);
+              const availableCapacity = currentCapacity - usedCapacity;
+
+              // 3. Check if required roles are present in the team
+              const playerRoles = new Set(player.employees.map(e => e.role));
+              const hasRequiredRoles = contract.requiredRoles.every(role => playerRoles.has(role));
+
+              if (availableCapacity >= contract.requiredCapacity && hasRequiredRoles) {
+                player.activeContracts.push(contract);
+                availableContracts.splice(contractIndex, 1);
+                broadcastState();
+              }
+            }
+          }
+          break;
+
+        case "UPDATE_BENEFITS":
+          if (playerId && players.has(playerId)) {
+            const player = players.get(playerId)!;
+            if (player.isUnderTutelage) return;
+            player.benefits = message.benefits;
+            broadcastState();
+          }
+          break;
+
+        case "SEARCH_INTERNATIONAL":
+          if (playerId && players.has(playerId)) {
+            const player = players.get(playerId)!;
+            if (player.isUnderTutelage) return;
+            if (player.money >= 5000) {
+              player.money -= 5000;
+              const newCandidate = generateCandidate(true);
+              candidates.push(newCandidate);
+              broadcastState();
+            }
+          }
+          break;
+
+        case "TARGETED_RECRUITMENT":
+          if (playerId && players.has(playerId)) {
+            const player = players.get(playerId)!;
+            if (player.isUnderTutelage) return;
+            
+            const cost = player.targetedRecruitCount >= 2 ? 5000 : 0;
+            
+            if (player.money >= cost) {
+              player.money -= cost;
+              player.targetedRecruitCount++;
+              const newCandidate = generateCandidate(false, message.role, message.seniority);
+              candidates.push(newCandidate);
+              broadcastState();
+            }
+          }
+          break;
+
+        case "ADVANCE_WEEK":
+          processOneWeek();
+          break;
+        case "NEGOTIATE_RESULT":
+          if (playerId && players.has(playerId)) {
+            const player = players.get(playerId)!;
+            if (player.isUnderTutelage) return;
+            const { candidateId, status, finalSalary } = message;
+            
+            if (status === "ACCEPTED") {
+              const candidateIndex = candidates.findIndex(c => c.id === candidateId);
+              if (candidateIndex !== -1) {
+                const candidate = candidates[candidateIndex];
+                candidate.currentEmployerId = playerId;
+                candidate.minSalary = finalSalary; // Update to negotiated salary
+                player.employees.push(candidate);
+                player.totalHired++;
+                candidates.splice(candidateIndex, 1);
+                broadcastState();
+              }
+            }
+          }
+          break;
+
+        case "HIRE":
+          // Legacy hire removed in favor of negotiation
+          break;
+          
+        case "FIRE":
+          if (playerId && players.has(playerId)) {
+            const player = players.get(playerId)!;
+            // Allow firing even under tutelage to help player recover
+            const empIndex = player.employees.findIndex(e => e.id === message.employeeId);
+            if (empIndex !== -1) {
+              const emp = player.employees[empIndex];
+              emp.currentEmployerId = null;
+              candidates.push(emp);
+              player.employees.splice(empIndex, 1);
+              player.totalFired++;
+              broadcastState();
+            }
+          }
+          break;
+      }
+    } catch (e) {
+      console.error("Failed to parse message from client:", e);
+    }
+  });
+
+    ws.on("error", (err) => {
+      console.error("WebSocket client error:", err);
+    });
+
+    ws.on("close", () => {
+      if (playerId) {
+        // We could keep the player for a while, but for this sim we remove them
+        // players.delete(playerId);
+        // broadcastState();
+      }
+    });
+  });
+
+  // Vite middleware for development
+  if (process.env.NODE_ENV !== "production") {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: "spa",
+    });
+    app.use(vite.middlewares);
+  } else {
+    app.use(express.static(path.join(__dirname, "dist")));
+    app.get("*", (req, res) => {
+      res.sendFile(path.join(__dirname, "dist", "index.html"));
+    });
+  }
+
+  server.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+}
+
+startServer().catch((err) => {
+  console.error("Failed to start server:", err);
+});
