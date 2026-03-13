@@ -69,6 +69,7 @@ interface Employee {
   resignationNotice: number | null; // null if not resigning, 1 if notice given
   status: EmployeeStatus;
   leaveWeeksRemaining: number;
+  hiredAtWeek?: number;
 }
 
 interface InboxMessage {
@@ -379,8 +380,8 @@ async function startServer() {
 
       // 2. Calculate Team Productivity (Points per week)
       const SENIORITY_MULTIPLIER = {
-        "Sénior": 1.5,
-        "Intermédiaire": 1.2,
+        "Sénior": 2.5,
+        "Intermédiaire": 1.8,
         "Junior": 1.0,
         "Stagiaire": 0.5
       };
@@ -548,6 +549,11 @@ async function startServer() {
               });
               // Keep only last 50 messages
               if (employee.chatHistory.length > 50) employee.chatHistory.shift();
+              
+              if (message.cancelResignation) {
+                employee.resignationNotice = null;
+              }
+              
               broadcastState();
             }
           }
@@ -603,8 +609,8 @@ async function startServer() {
               
               // 1. Calculate current capacity
               const SENIORITY_MULTIPLIER = {
-                "Sénior": 1.5,
-                "Intermédiaire": 1.2,
+                "Sénior": 2.5,
+                "Intermédiaire": 1.8,
                 "Junior": 1.0,
                 "Stagiaire": 0.5
               };
@@ -686,7 +692,8 @@ async function startServer() {
                 const candidate = candidates[candidateIndex];
                 candidate.currentEmployerId = playerId;
                 candidate.minSalary = finalSalary; // Update to negotiated salary
-                player.employees.push(candidate);
+                candidate.hiredAtWeek = currentWeek;
+                player.employees.unshift(candidate);
                 player.totalHired++;
                 candidates.splice(candidateIndex, 1);
                 broadcastState();

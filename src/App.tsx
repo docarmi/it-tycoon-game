@@ -37,7 +37,7 @@ import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
 
 const parseAIResponse = (text: string) => {
   if (!text || text.trim() === "") {
-    return { text: "Désolé, je n'ai pas pu formuler de réponse. Pouvons-nous réessayer ?", status: "STAY" };
+    return { text: "Désolé, je n'ai pas pu formuler de réponse. Pouvons-nous réessayer ?", status: "STAY", cancelResignation: false };
   }
   
   try {
@@ -46,7 +46,8 @@ const parseAIResponse = (text: string) => {
     return {
       text: parsed.text || "...",
       status: parsed.status || "STAY",
-      counterSalary: parsed.counterSalary
+      counterSalary: parsed.counterSalary,
+      cancelResignation: parsed.cancelResignation === true
     };
   } catch (e) {
     // Try to extract JSON from markdown code blocks
@@ -57,7 +58,8 @@ const parseAIResponse = (text: string) => {
         return {
           text: parsed.text || "...",
           status: parsed.status || "STAY",
-          counterSalary: parsed.counterSalary
+          counterSalary: parsed.counterSalary,
+          cancelResignation: parsed.cancelResignation === true
         };
       } catch (e2) {
         console.error("Failed to parse extracted JSON", e2);
@@ -72,7 +74,8 @@ const parseAIResponse = (text: string) => {
         return {
           text: parsed.text || "...",
           status: parsed.status || "STAY",
-          counterSalary: parsed.counterSalary
+          counterSalary: parsed.counterSalary,
+          cancelResignation: parsed.cancelResignation === true
         };
       } catch (e3) {
         console.error("Failed to parse regex-matched JSON", e3);
@@ -80,7 +83,7 @@ const parseAIResponse = (text: string) => {
     }
 
     // Fallback: if it's just text, return it as text
-    return { text: text, status: "STAY" };
+    return { text: text, status: "STAY", cancelResignation: false };
   }
 };
 
@@ -137,6 +140,7 @@ interface Employee {
   resignationNotice: number | null;
   status: EmployeeStatus;
   leaveWeeksRemaining: number;
+  hiredAtWeek?: number;
 }
 
 interface InboxMessage {
@@ -318,25 +322,49 @@ export default function App() {
         return;
       }
 
-      const prompt = `Tu es ${employee.name}, un ${employee.seniority} ${employee.role} travaillant pour l'entreprise "${me.companyName}". 
+      const isResigning = employee.resignationNotice !== null;
+      const companyBenefits = me.benefits.map(bId => gameState?.benefits.find(b => b.id === bId)?.name).filter(Boolean).join(', ') || "Aucun avantage";
+      
+      let prompt = `Tu es ${employee.name}, un ${employee.seniority} ${employee.role} travaillant pour l'entreprise "${me.companyName}". 
+      L'entreprise offre actuellement les avantages suivants : ${companyBenefits}.
       Ton employeur vient de t'envoyer ce message : "${text}". 
       Réponds de manière professionnelle mais naturelle, en tenant compte de ton rôle et de ton expérience. 
       Réponds en français, de manière concise (max 2-3 phrases).`;
 
+      if (isResigning) {
+        prompt += `\n\nIMPORTANT: Tu as récemment donné ton préavis de démission. Si le message de ton employeur répond à tes attentes (promesse de meilleurs avantages, ou de bons arguments), tu peux décider d'annuler ta démission.
+        Tu dois répondre UNIQUEMENT au format JSON suivant :
+        {
+          "text": "Ta réponse à l'employeur",
+          "cancelResignation": true ou false
+        }`;
+      }
+
       const result = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        config: { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } }
+        config: { 
+          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+          ...(isResigning ? { responseMimeType: "application/json" } : {})
+        }
       });
 
-      const responseText = result.text || "Désolé, je suis un peu occupé pour le moment.";
+      let responseText = result.text || "Désolé, je suis un peu occupé pour le moment.";
+      let cancelResignation = false;
+
+      if (isResigning) {
+        const parsed = parseAIResponse(responseText);
+        responseText = parsed.text;
+        cancelResignation = (parsed as any).cancelResignation === true || responseText.includes('"cancelResignation": true') || responseText.includes('"cancelResignation":true');
+      }
 
       // 3. Send employee response to server
       safeSend({
         type: "SEND_CHAT",
         employeeId: activeChatEmployeeId,
         sender: "employee",
-        text: responseText
+        text: responseText,
+        cancelResignation
       });
     } catch (error) {
       console.error("Chat error:", error);
@@ -429,8 +457,12 @@ export default function App() {
     safeSend({ type: 'SEARCH_INTERNATIONAL' });
   };
 
+  const [isWeekChanging, setIsWeekChanging] = useState(false);
+
   const advanceWeek = () => {
+    setIsWeekChanging(true);
     safeSend({ type: 'ADVANCE_WEEK' });
+    setTimeout(() => setIsWeekChanging(false), 500);
   };
 
   const [isRecruiting, setIsRecruiting] = useState(false);
@@ -493,21 +525,31 @@ export default function App() {
     try {
       const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
       const ctx = new AudioContext();
-      const osc = ctx.createOscillator();
-      const gainNode = ctx.createGain();
       
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
-      osc.frequency.exponentialRampToValueAtTime(1046.50, ctx.currentTime + 0.1); // C6
-      
-      gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
-      
-      osc.connect(gainNode);
-      gainNode.connect(ctx.destination);
-      
-      osc.start();
-      osc.stop(ctx.currentTime + 0.1);
+      const playNote = (freq: number, startTime: number, duration: number) => {
+        const osc = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, startTime);
+        
+        gainNode.gain.setValueAtTime(0, startTime);
+        gainNode.gain.linearRampToValueAtTime(0.1, startTime + 0.05);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+        
+        osc.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        
+        osc.start(startTime);
+        osc.stop(startTime + duration);
+      };
+
+      const now = ctx.currentTime;
+      // Happy major arpeggio: C5, E5, G5, C6
+      playNote(523.25, now, 0.15);       // C5
+      playNote(659.25, now + 0.1, 0.15); // E5
+      playNote(783.99, now + 0.2, 0.15); // G5
+      playNote(1046.50, now + 0.3, 0.4); // C6
     } catch (e) {
       console.error("Audio not supported");
     }
@@ -926,11 +968,13 @@ export default function App() {
             </div>
             <button 
               onClick={advanceWeek}
-              className={`flex px-4 py-2 md:px-5 md:py-2.5 rounded-xl text-xs md:text-sm font-black transition-all items-center gap-2 shadow-lg whitespace-nowrap ${
-                theme === 'dark' ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'
+              className={`flex px-4 py-2 md:px-5 md:py-2.5 rounded-xl text-xs md:text-sm font-black transition-all duration-300 items-center gap-2 shadow-lg whitespace-nowrap ${
+                isWeekChanging 
+                  ? 'bg-emerald-500 text-white scale-105' 
+                  : theme === 'dark' ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'
               }`}
             >
-              <Clock className="w-4 h-4 md:w-5 md:h-5 animate-pulse" />
+              <Clock className={`w-4 h-4 md:w-5 md:h-5 ${isWeekChanging ? 'animate-spin' : 'animate-pulse'}`} />
               <span className="hidden sm:inline">Semaine Suivante</span>
               <span className="sm:hidden">Suivant</span>
             </button>
@@ -1154,8 +1198,14 @@ export default function App() {
                         Aucun employé pour le moment. Allez sur le marché pour recruter !
                       </div>
                     ) : (
-                      me?.employees.map(emp => (
-                        <div key={emp.id} className={`p-4 flex items-center justify-between transition-colors ${theme === 'dark' ? 'hover:bg-white/5' : 'hover:bg-gray-50'}`}>
+                      me?.employees.map(emp => {
+                        const isNewHire = emp.hiredAtWeek === gameState?.currentWeek;
+                        return (
+                        <div key={emp.id} className={`p-4 flex items-center justify-between transition-colors ${
+                          isNewHire
+                            ? (theme === 'dark' ? 'bg-emerald-500/10 border-l-4 border-emerald-500' : 'bg-emerald-50 border-l-4 border-emerald-500')
+                            : (theme === 'dark' ? 'hover:bg-white/5 border-l-4 border-transparent' : 'hover:bg-gray-50 border-l-4 border-transparent')
+                        }`}>
                           <div className="flex items-center gap-4">
                             <img 
                               src={emp.avatarUrl} 
@@ -1166,6 +1216,11 @@ export default function App() {
                             <div>
                               <div className="flex items-center gap-2">
                                 <p className="font-bold">{emp.name} {emp.isInternational && "🌍"}</p>
+                                {isNewHire && (
+                                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase rounded-full border border-emerald-200 animate-pulse">
+                                    Nouveau
+                                  </span>
+                                )}
                                 {emp.resignationNotice !== null && (
                                   <span className="px-2 py-0.5 bg-rose-100 text-rose-600 text-[10px] font-black uppercase rounded-full border border-rose-200 animate-pulse">
                                     Démission (Préavis)
@@ -1230,7 +1285,8 @@ export default function App() {
                             </div>
                           </div>
                         </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 </div>
