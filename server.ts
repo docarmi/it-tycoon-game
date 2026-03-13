@@ -70,6 +70,7 @@ interface Employee {
   status: EmployeeStatus;
   leaveWeeksRemaining: number;
   hiredAtWeek?: number;
+  isTargeted?: boolean;
 }
 
 interface InboxMessage {
@@ -671,7 +672,8 @@ async function startServer() {
               player.money -= cost;
               player.targetedRecruitCount++;
               const newCandidate = generateCandidate(false, message.role, message.seniority);
-              candidates.push(newCandidate);
+              newCandidate.isTargeted = true;
+              candidates.unshift(newCandidate);
               broadcastState();
             }
           }

@@ -141,6 +141,7 @@ interface Employee {
   status: EmployeeStatus;
   leaveWeeksRemaining: number;
   hiredAtWeek?: number;
+  isTargeted?: boolean;
 }
 
 interface InboxMessage {
@@ -1007,7 +1008,7 @@ export default function App() {
           >
             <UserPlus className="w-3 h-3 md:w-4 md:h-4" /> <span className="hidden sm:inline">Marché de l'emploi</span><span className="sm:hidden">Marché</span>
             {gameState?.candidates && gameState.candidates.length > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-3 w-3 sm:h-4 sm:w-4 items-center justify-center rounded-full bg-rose-500 text-[8px] sm:text-[10px] font-bold text-white shadow-sm ring-2 ring-white dark:ring-black">
+              <span className="absolute -top-1 -right-1 flex h-3 w-3 sm:h-4 sm:w-4 items-center justify-center rounded-full bg-indigo-500 text-[8px] sm:text-[10px] font-bold text-white shadow-sm ring-2 ring-white dark:ring-black">
                 {gameState.candidates.length}
               </span>
             )}
@@ -1573,12 +1574,17 @@ export default function App() {
                     <motion.div 
                       layout
                       key={candidate.id}
-                      className={`p-6 rounded-[32px] border transition-all flex flex-col justify-between group ${
+                      className={`p-6 rounded-[32px] border transition-all flex flex-col justify-between group relative ${
                         theme === 'dark' 
                           ? 'bg-white/5 border-white/10 hover:border-white/20' 
                           : 'bg-white border-black/5 shadow-sm hover:shadow-md'
                       } ${candidate.isInternational ? 'ring-2 ring-indigo-500/20' : ''}`}
                     >
+                      {candidate.isTargeted && (
+                        <div className="bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest text-center py-1 -mx-6 -mt-6 mb-6 rounded-t-[32px]">
+                          Négocié
+                        </div>
+                      )}
                       <div>
                         <div className="flex items-center justify-between mb-6">
                           <div className="relative">
