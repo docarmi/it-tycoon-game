@@ -24,7 +24,9 @@ import {
   Sun,
   GanttChart as GanttIcon,
   Mail,
-  X
+  X,
+  Clock,
+  CheckCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
@@ -431,13 +433,43 @@ export default function App() {
     safeSend({ type: 'ADVANCE_WEEK' });
   };
 
+  const [isRecruiting, setIsRecruiting] = useState(false);
+
+  const playRecruitSound = () => {
+    try {
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(440, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.1);
+      osc.frequency.exponentialRampToValueAtTime(1760, ctx.currentTime + 0.2);
+      
+      gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+      
+      osc.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      
+      osc.start();
+      osc.stop(ctx.currentTime + 0.3);
+    } catch (e) {
+      console.error("Audio not supported");
+    }
+  };
+
   const targetedRecruitment = () => {
     if (selectedRecruitRole) {
+      playRecruitSound();
+      setIsRecruiting(true);
       safeSend({ 
         type: 'TARGETED_RECRUITMENT', 
         role: selectedRecruitRole,
         seniority: selectedRecruitSeniority
       });
+      setTimeout(() => setIsRecruiting(false), 1500);
     }
   };
 
@@ -728,6 +760,7 @@ export default function App() {
 
   const finalizeHire = (salary: number) => {
     if (selectedCandidate) {
+      playSuccessSound();
       safeSend({ 
         type: 'NEGOTIATE_RESULT', 
         candidateId: selectedCandidate.id, 
@@ -849,6 +882,21 @@ export default function App() {
 
           <div className="flex items-center gap-4 md:gap-8">
             <button 
+              onClick={() => setIsInboxOpen(true)}
+              className={`p-2 rounded-xl border transition-all relative ${
+                theme === 'dark' ? 'bg-white/5 border-white/10 text-white hover:bg-white/10' : 'bg-black/5 border-black/5 text-black hover:bg-black/10'
+              }`}
+              title="Boîte de réception"
+            >
+              <Mail className="w-5 h-5" />
+              {me && me.inbox.filter(m => !m.read).length > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-sm ring-2 ring-white dark:ring-black">
+                  {me.inbox.filter(m => !m.read).length}
+                </span>
+              )}
+            </button>
+
+            <button 
               onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
               className={`p-2 rounded-xl border transition-all ${
                 theme === 'dark' ? 'bg-white/5 border-white/10 text-white hover:bg-white/10' : 'bg-black/5 border-black/5 text-black hover:bg-black/10'
@@ -878,10 +926,11 @@ export default function App() {
             </div>
             <button 
               onClick={advanceWeek}
-              className={`flex px-3 py-2 md:px-4 md:py-2 rounded-xl text-[10px] md:text-xs font-bold transition-all items-center gap-1 md:gap-2 shadow-lg whitespace-nowrap ${
+              className={`flex px-4 py-2 md:px-5 md:py-2.5 rounded-xl text-xs md:text-sm font-black transition-all items-center gap-2 shadow-lg whitespace-nowrap ${
                 theme === 'dark' ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'
               }`}
             >
+              <Clock className="w-4 h-4 md:w-5 md:h-5 animate-pulse" />
               <span className="hidden sm:inline">Semaine Suivante</span>
               <span className="sm:hidden">Suivant</span>
             </button>
@@ -906,13 +955,18 @@ export default function App() {
           </button>
           <button 
             onClick={() => setActiveTab('market')}
-            className={`flex-1 md:flex-none whitespace-nowrap px-4 md:px-8 py-2.5 rounded-xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-2 ${
+            className={`flex-1 md:flex-none whitespace-nowrap px-4 md:px-8 py-2.5 rounded-xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-2 relative ${
               activeTab === 'market' 
                 ? (theme === 'dark' ? 'bg-white text-black shadow-xl' : 'bg-black text-white shadow-xl') 
                 : (theme === 'dark' ? 'text-gray-500 hover:bg-white/5' : 'text-gray-500 hover:bg-white/80')
             }`}
           >
             <UserPlus className="w-3 h-3 md:w-4 md:h-4" /> <span className="hidden sm:inline">Marché de l'emploi</span><span className="sm:hidden">Marché</span>
+            {gameState?.candidates && gameState.candidates.length > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-3 w-3 sm:h-4 sm:w-4 items-center justify-center rounded-full bg-rose-500 text-[8px] sm:text-[10px] font-bold text-white shadow-sm ring-2 ring-white dark:ring-black">
+                {gameState.candidates.length}
+              </span>
+            )}
           </button>
           <button 
             onClick={() => setActiveTab('competition')}
@@ -1407,15 +1461,26 @@ export default function App() {
                         </div>
                         <button 
                           onClick={targetedRecruitment}
-                          disabled={me?.isUnderTutelage}
+                          disabled={me?.isUnderTutelage || isRecruiting}
                           className={`px-6 py-3 rounded-xl text-sm font-black transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg ${
-                            me && me.targetedRecruitCount >= 2 
-                              ? 'bg-amber-400 hover:bg-amber-500 text-amber-950' 
-                              : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                            isRecruiting 
+                              ? 'bg-emerald-500 text-white'
+                              : me && me.targetedRecruitCount >= 2 
+                                ? 'bg-amber-400 hover:bg-amber-500 text-amber-950' 
+                                : 'bg-indigo-600 hover:bg-indigo-700 text-white'
                           }`}
                         >
-                          <Search className="w-4 h-4" />
-                          Recruter ({me && me.targetedRecruitCount < 2 ? 'Gratuit' : '5 000 $'})
+                          {isRecruiting ? (
+                            <>
+                              <CheckCircle className="w-4 h-4" />
+                              Candidat trouvé !
+                            </>
+                          ) : (
+                            <>
+                              <Search className="w-4 h-4" />
+                              Recruter ({me && me.targetedRecruitCount < 2 ? 'Gratuit' : '5 000 $'})
+                            </>
+                          )}
                         </button>
                       </div>
 
@@ -1643,6 +1708,73 @@ export default function App() {
           )}
         </AnimatePresence>
       </main>
+
+      {/* Inbox Overlay */}
+      <AnimatePresence>
+        {isInboxOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[250] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          >
+            <motion.div 
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className={`w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh] ${
+                theme === 'dark' ? 'bg-[#111] text-white' : 'bg-white text-black'
+              }`}
+            >
+              <div className={`p-6 border-b flex items-center justify-between ${theme === 'dark' ? 'border-white/10' : 'border-black/5'}`}>
+                <div className="flex items-center gap-3">
+                  <Mail className="w-6 h-6 text-indigo-500" />
+                  <h2 className="text-xl font-black uppercase tracking-tight">Boîte de réception</h2>
+                </div>
+                <button 
+                  onClick={() => setIsInboxOpen(false)}
+                  className={`p-2 rounded-full transition-colors ${theme === 'dark' ? 'hover:bg-white/10' : 'hover:bg-black/5'}`}
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                {me?.inbox.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500 italic">
+                    Aucun message pour le moment.
+                  </div>
+                ) : (
+                  [...(me?.inbox || [])].reverse().map(msg => (
+                    <div 
+                      key={msg.id} 
+                      className={`p-4 rounded-2xl border transition-all ${
+                        !msg.read 
+                          ? (theme === 'dark' ? 'bg-indigo-500/10 border-indigo-500/30' : 'bg-indigo-50 border-indigo-200') 
+                          : (theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-gray-50 border-black/5')
+                      }`}
+                      onClick={() => {
+                        if (!msg.read) {
+                          safeSend({ type: 'MARK_MESSAGE_READ', messageId: msg.id });
+                        }
+                      }}
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <h3 className="font-bold text-sm">{msg.subject}</h3>
+                          <p className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>De: {msg.from} • Semaine {msg.week}</p>
+                        </div>
+                        {!msg.read && <span className="w-2 h-2 rounded-full bg-indigo-500"></span>}
+                      </div>
+                      <p className="text-sm mt-2 whitespace-pre-wrap">{msg.text}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Resignation Overlay */}
       <AnimatePresence>

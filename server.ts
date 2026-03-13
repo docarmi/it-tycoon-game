@@ -286,6 +286,14 @@ async function startServer() {
           const resignationChance = player.isUnderTutelage ? 0.3 : 0.15;
           if (Math.random() < resignationChance) {
             emp.resignationNotice = 1; // 1 week notice
+            player.inbox.push({
+              id: Math.random().toString(36).substr(2, 9),
+              from: emp.name,
+              subject: "Préavis de démission",
+              text: `Je vous informe de mon intention de démissionner. Je quitterai l'entreprise la semaine prochaine.`,
+              read: false,
+              week: currentWeek
+            });
           }
         }
 
@@ -568,6 +576,17 @@ async function startServer() {
             const email = player.inbox.find(e => e.id === message.emailId);
             if (email) {
               email.read = true;
+              broadcastState();
+            }
+          }
+          break;
+
+        case "MARK_MESSAGE_READ":
+          if (playerId && players.has(playerId)) {
+            const player = players.get(playerId)!;
+            const msg = player.inbox.find(m => m.id === message.messageId);
+            if (msg) {
+              msg.read = true;
               broadcastState();
             }
           }
