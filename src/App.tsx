@@ -22,7 +22,9 @@ import {
   Zap,
   Moon,
   Sun,
-  GanttChart as GanttIcon
+  GanttChart as GanttIcon,
+  Mail,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
@@ -110,10 +112,13 @@ interface Contract {
 }
 
 interface ChatMessage {
-  sender: 'player' | 'employee';
+  sender: 'player' | 'employee' | 'system';
   text: string;
   timestamp: number;
+  companyName?: string;
 }
+
+type EmployeeStatus = 'Actif' | 'Maladie' | 'Congé' | 'Maternité' | 'Maladie long terme';
 
 interface Employee {
   id: string;
@@ -128,6 +133,17 @@ interface Employee {
   chatHistory: ChatMessage[];
   productivityHistory: number[];
   resignationNotice: number | null;
+  status: EmployeeStatus;
+  leaveWeeksRemaining: number;
+}
+
+interface InboxMessage {
+  id: string;
+  from: string;
+  subject: string;
+  text: string;
+  read: boolean;
+  week: number;
 }
 
 interface Player {
@@ -146,6 +162,7 @@ interface Player {
   totalFired: number;
   customerSatisfaction: number;
   resignedThisWeek: Employee[];
+  inbox: InboxMessage[];
 }
 
 interface GameState {
@@ -165,6 +182,7 @@ export default function App() {
   const [companyName, setCompanyName] = useState(localStorage.getItem('it_tycoon_company_name') || '');
   const [isJoined, setIsJoined] = useState(false);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'market' | 'competition'>('dashboard');
+  const [expandedContractId, setExpandedContractId] = useState<string | null>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [roles, setRoles] = useState<Role[]>([]);
   const [selectedRecruitRole, setSelectedRecruitRole] = useState<Role | "">("");
@@ -175,7 +193,6 @@ export default function App() {
   const [negotiationResult, setNegotiationResult] = useState<'ACCEPTED' | 'REFUSED' | null>(null);
   const [offeredSalary, setOfferedSalary] = useState<number>(0);
   const [offeredBenefits, setOfferedBenefits] = useState<string[]>([]);
-  const [negotiationHistory, setNegotiationHistory] = useState<{role: 'player' | 'worker', text: string}[]>([]);
   const [isWaitingForAI, setIsWaitingForAI] = useState(false);
   const [canAcceptCounter, setCanAcceptCounter] = useState(false);
   const [lastCounterOffer, setLastCounterOffer] = useState<{salary: number} | null>(null);
@@ -183,6 +200,7 @@ export default function App() {
   const [resignedEmployee, setResignedEmployee] = useState<Employee | null>(null);
   const [shownResignations, setShownResignations] = useState<Set<string>>(new Set());
   const [geminiApiKey, setGeminiApiKey] = useState<string>("");
+  const [isInboxOpen, setIsInboxOpen] = useState(false);
 
   useEffect(() => {
     fetch('/api/config')
@@ -439,7 +457,56 @@ export default function App() {
     }, 0);
   };
 
+  const playSuccessSound = () => {
+    try {
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+      osc.frequency.exponentialRampToValueAtTime(1046.50, ctx.currentTime + 0.1); // C6
+      
+      gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+      
+      osc.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      
+      osc.start();
+      osc.stop(ctx.currentTime + 0.1);
+    } catch (e) {
+      console.error("Audio not supported");
+    }
+  };
+
+  const playClickSound = () => {
+    try {
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.05);
+      
+      gainNode.gain.setValueAtTime(0.05, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05);
+      
+      osc.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      
+      osc.start();
+      osc.stop(ctx.currentTime + 0.05);
+    } catch (e) {
+      console.error("Audio not supported");
+    }
+  };
+
   const applyForContract = (contractId: string) => {
+    playSuccessSound();
     safeSend({ type: 'APPLY_CONTRACT', contractId });
   };
 
@@ -450,7 +517,7 @@ export default function App() {
     setOfferedSalary(candidate.minSalary);
     const me = gameState?.players.find(([id]) => id === playerId)?.[1];
     setOfferedBenefits(me?.benefits || []);
-    setNegotiationHistory([{ role: 'worker', text: `Bonjour ! Je suis intéressé par le poste de ${candidate.role}. Quelle est votre offre ?` }]);
+    safeSend({ type: "SEND_CANDIDATE_CHAT", candidateId: candidate.id, sender: 'employee', text: `Bonjour ! Je suis intéressé par le poste de ${candidate.role}. Quelle est votre offre ?` });
     setCanAcceptCounter(false);
     setLastCounterOffer(null);
   };
@@ -463,7 +530,8 @@ export default function App() {
       offeredBenefits.map(id => (gameState?.benefits || []).find(b => b.id === id)?.name).filter(Boolean).join(', ') || 'aucun'
     }.`;
     
-    setNegotiationHistory(prev => [...prev, { role: 'player', text: playerMsg }]);
+    const me = gameState?.players.find(([id]) => id === playerId)?.[1];
+    safeSend({ type: "SEND_CANDIDATE_CHAT", candidateId: selectedCandidate.id, sender: 'player', text: playerMsg, companyName: me?.companyName });
 
     try {
       const apiKey = geminiApiKey || (typeof process !== 'undefined' && process.env.GEMINI_API_KEY) || ((import.meta as any).env?.VITE_GEMINI_API_KEY as string);
@@ -511,7 +579,7 @@ export default function App() {
       });
 
       const result = parseAIResponse(response.text || "{}");
-      setNegotiationHistory(prev => [...prev, { role: 'worker', text: result.text }]);
+      safeSend({ type: "SEND_CANDIDATE_CHAT", candidateId: selectedCandidate.id, sender: 'employee', text: result.text });
       
       if (result.status === "ACCEPTED") {
         setNegotiationResult('ACCEPTED');
@@ -542,7 +610,7 @@ export default function App() {
       const errorMsg = error?.message?.includes("safety") 
         ? "Désolé, je ne peux pas répondre à cette offre pour des raisons de sécurité."
         : "Désolé, j'ai eu un problème technique en analysant votre offre. Pouvons-nous reprendre ?";
-      setNegotiationHistory(prev => [...prev, { role: 'worker', text: errorMsg }]);
+      safeSend({ type: "SEND_CANDIDATE_CHAT", candidateId: selectedCandidate.id, sender: 'employee', text: errorMsg });
     } finally {
       setIsWaitingForAI(false);
     }
@@ -570,13 +638,15 @@ export default function App() {
     const text = negotiationChatInput.trim();
     setNegotiationChatInput("");
     setIsWaitingForAI(true);
-    setNegotiationHistory(prev => [...prev, { role: 'player', text }]);
+    
+    const me = gameState?.players.find(([id]) => id === playerId)?.[1];
+    safeSend({ type: "SEND_CANDIDATE_CHAT", candidateId: selectedCandidate.id, sender: 'player', text, companyName: me?.companyName });
 
     try {
       const apiKey = geminiApiKey || (typeof process !== 'undefined' && process.env.GEMINI_API_KEY) || ((import.meta as any).env?.VITE_GEMINI_API_KEY as string);
       if (!apiKey) {
         console.error("Clé API Gemini manquante pour la négociation.");
-        setNegotiationHistory(prev => [...prev, { role: 'worker', text: "Désolé, je ne peux pas discuter pour le moment (Clé API manquante)." }]);
+        safeSend({ type: "SEND_CANDIDATE_CHAT", candidateId: selectedCandidate.id, sender: 'employee', text: "Désolé, je ne peux pas discuter pour le moment (Clé API manquante)." });
         return;
       }
       const ai = new GoogleGenAI({ apiKey });
@@ -619,7 +689,7 @@ export default function App() {
       });
 
       const result = parseAIResponse(response.text || "{}");
-      setNegotiationHistory(prev => [...prev, { role: 'worker', text: result.text }]);
+      safeSend({ type: "SEND_CANDIDATE_CHAT", candidateId: selectedCandidate.id, sender: 'employee', text: result.text });
       
       if (result.status === "ACCEPTED") {
         setNegotiationResult('ACCEPTED');
@@ -650,7 +720,7 @@ export default function App() {
       const errorMsg = error?.message?.includes("safety") 
         ? "Désolé, je ne peux pas répondre pour des raisons de sécurité."
         : "Désolé, j'ai eu un problème technique en traitant votre message. Pouvons-nous reprendre ?";
-      setNegotiationHistory(prev => [...prev, { role: 'worker', text: errorMsg }]);
+      safeSend({ type: "SEND_CANDIDATE_CHAT", candidateId: selectedCandidate.id, sender: 'employee', text: errorMsg });
     } finally {
       setIsWaitingForAI(false);
     }
@@ -808,11 +878,12 @@ export default function App() {
             </div>
             <button 
               onClick={advanceWeek}
-              className={`hidden md:flex px-4 py-2 rounded-xl text-xs font-bold transition-all items-center gap-2 shadow-lg ${
+              className={`flex px-3 py-2 md:px-4 md:py-2 rounded-xl text-[10px] md:text-xs font-bold transition-all items-center gap-1 md:gap-2 shadow-lg whitespace-nowrap ${
                 theme === 'dark' ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'
               }`}
             >
-              Semaine Suivante
+              <span className="hidden sm:inline">Semaine Suivante</span>
+              <span className="sm:hidden">Suivant</span>
             </button>
           </div>
         </div>
@@ -1191,7 +1262,7 @@ export default function App() {
                   </span>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="flex flex-wrap gap-3">
                   {gameState?.availableContracts.map(contract => {
                     const currentCapacity = calculateTotalCapacity(me?.employees || []);
                     const usedCapacity = me?.activeContracts.reduce((acc, c) => acc + c.requiredCapacity, 0) || 0;
@@ -1199,47 +1270,68 @@ export default function App() {
                     const playerRoles = new Set(me?.employees.map(e => e.role) || []);
                     const hasRequiredRoles = contract.requiredRoles.every(role => playerRoles.has(role));
                     const canApply = availableCapacity >= contract.requiredCapacity && hasRequiredRoles && !me?.isUnderTutelage;
+                    const isExpanded = expandedContractId === contract.id;
 
                     return (
-                      <div key={contract.id} className="bg-white p-6 rounded-2xl border border-black/5 shadow-sm flex flex-col justify-between">
-                        <div>
-                          <div className="flex items-center justify-between mb-4">
-                            <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center">
-                              <Briefcase className="w-5 h-5 text-indigo-600" />
-                            </div>
-                            <div className="text-right">
-                              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Revenu Mensuel</p>
-                              <p className="font-mono font-bold text-emerald-600">+{contract.monthlyRevenue.toLocaleString()} $</p>
-                            </div>
-                          </div>
-                          <h4 className="text-lg font-bold mb-1">{contract.title}</h4>
-                          <div className="space-y-2 mt-4">
+                      <div 
+                        key={contract.id} 
+                        className="relative group"
+                        onMouseEnter={() => setExpandedContractId(contract.id)}
+                        onMouseLeave={() => setExpandedContractId(null)}
+                      >
+                        {/* Pill */}
+                        <div 
+                          onClick={() => {
+                            if (canApply && !isExpanded) playClickSound();
+                            setExpandedContractId(isExpanded ? null : contract.id);
+                          }}
+                          className={`flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2 rounded-full border cursor-pointer transition-all ${
+                            canApply 
+                              ? (theme === 'dark' ? 'bg-indigo-500/20 border-indigo-500/50 hover:bg-indigo-500/30' : 'bg-indigo-50 border-indigo-200 hover:bg-indigo-100 shadow-md')
+                              : (theme === 'dark' ? 'bg-white/5 border-white/10 hover:bg-white/10' : 'bg-white border-black/10 hover:bg-gray-50 shadow-sm')
+                          }`}
+                        >
+                          <Briefcase className={`transition-all ${canApply ? 'w-5 h-5 sm:w-6 sm:h-6 text-indigo-600 animate-pulse' : 'w-4 h-4 text-indigo-400'}`} />
+                          <span className={`font-bold text-xs sm:text-sm truncate max-w-[120px] sm:max-w-[200px] ${canApply ? 'text-indigo-900 dark:text-indigo-200' : ''}`}>{contract.title}</span>
+                          <span className="text-emerald-600 font-bold text-[10px] sm:text-xs">+{contract.monthlyRevenue.toLocaleString()}$</span>
+                        </div>
+
+                        {/* Tooltip / Dropdown */}
+                        <div className={`absolute top-full left-0 sm:left-1/2 sm:-translate-x-1/2 mt-2 w-64 sm:w-72 p-4 rounded-2xl shadow-xl border transition-all z-50 ${
+                          isExpanded ? 'opacity-100 visible translate-y-0' : 'opacity-0 invisible -translate-y-2'
+                        } ${
+                          theme === 'dark' ? 'bg-gray-900 border-white/10 text-white' : 'bg-white border-black/10 text-black'
+                        }`}>
+                          <h4 className="text-sm sm:text-base font-bold mb-3">{contract.title}</h4>
+                          <div className="space-y-2 mb-4">
                             <div className="flex justify-between text-xs">
-                              <span className="text-gray-500">Workload (pts)</span>
-                              <span className="font-bold text-gray-900">{contract.workload.toLocaleString()}</span>
+                              <span className="text-gray-500">Workload</span>
+                              <span className="font-bold">{contract.workload.toLocaleString()} pts</span>
                             </div>
                             <div className="flex justify-between text-xs">
                               <span className="text-gray-500">Capacité requise</span>
-                              <span className={`font-bold ${availableCapacity < contract.requiredCapacity ? 'text-rose-600' : 'text-gray-900'}`}>
+                              <span className={`font-bold ${availableCapacity < contract.requiredCapacity ? 'text-rose-500' : ''}`}>
                                 {contract.requiredCapacity} pts
                               </span>
                             </div>
                             <div className="flex justify-between text-xs">
-                              <span className="text-gray-500">Délai contractuel</span>
-                              <span className="font-bold text-gray-900">{contract.duration} semaines</span>
+                              <span className="text-gray-500">Délai</span>
+                              <span className="font-bold">{contract.duration} sem.</span>
                             </div>
                             <div className="flex justify-between text-xs">
-                              <span className="text-gray-500">Amende retard</span>
-                              <span className="font-bold text-rose-600">-{contract.penalty.toLocaleString()} $/sem</span>
+                              <span className="text-gray-500">Amende</span>
+                              <span className="font-bold text-rose-500">-{contract.penalty.toLocaleString()}$</span>
                             </div>
-                            <div className="mt-4">
-                              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Fonctions requises</p>
+                            <div className="mt-2">
+                              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Fonctions requises</p>
                               <div className="flex flex-wrap gap-1">
                                 {contract.requiredRoles.map(role => (
                                   <span 
                                     key={role} 
                                     className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${
-                                      playerRoles.has(role) ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+                                      playerRoles.has(role) 
+                                        ? (theme === 'dark' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-700')
+                                        : (theme === 'dark' ? 'bg-rose-500/20 text-rose-400' : 'bg-rose-100 text-rose-700')
                                     }`}
                                   >
                                     {role}
@@ -1248,20 +1340,20 @@ export default function App() {
                               </div>
                             </div>
                           </div>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); applyForContract(contract.id); setExpandedContractId(null); }}
+                            disabled={!canApply}
+                            className="w-full py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {me?.isUnderTutelage 
+                              ? 'Sous Tutelle' 
+                              : !hasRequiredRoles 
+                                ? 'Fonctions manquantes' 
+                                : availableCapacity < contract.requiredCapacity 
+                                  ? 'Capacité insuffisante' 
+                                  : 'Postuler'}
+                          </button>
                         </div>
-                        <button 
-                          onClick={() => applyForContract(contract.id)}
-                          disabled={!canApply}
-                          className="w-full mt-6 py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {me?.isUnderTutelage 
-                            ? 'Sous Tutelle' 
-                            : !hasRequiredRoles 
-                              ? 'Fonctions manquantes' 
-                              : availableCapacity < contract.requiredCapacity 
-                                ? 'Capacité insuffisante' 
-                                : 'Postuler au contrat'}
-                        </button>
                       </div>
                     );
                   })}
@@ -1701,21 +1793,26 @@ export default function App() {
                 </div>
                 
                 <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 md:space-y-6">
-                  {negotiationHistory.map((msg, idx) => (
-                    <motion.div 
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      key={idx} 
-                      className={`flex ${msg.role === 'player' ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div className={`max-w-[85%] md:max-w-[80%] p-3 md:p-4 rounded-2xl md:rounded-3xl text-xs md:text-sm shadow-sm ${
-                        msg.role === 'player' 
-                          ? (theme === 'dark' ? 'bg-white text-black rounded-tr-none' : 'bg-black text-white rounded-tr-none') 
-                          : (theme === 'dark' ? 'bg-white/10 border border-white/10 text-white rounded-tl-none' : 'bg-white border border-black/5 rounded-tl-none')
-                      }`}>
-                        {msg.text}
-                      </div>
-                    </motion.div>
+                  {(gameState?.candidates.find(c => c.id === selectedCandidate.id)?.chatHistory || []).map((msg, idx) => (
+                    msg.sender === 'system' ? (
+                      <div key={idx} className="text-center text-xs text-gray-500 italic my-2">{msg.text}</div>
+                    ) : (
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        key={idx} 
+                        className={`flex ${msg.sender === 'player' ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div className={`max-w-[85%] md:max-w-[80%] p-3 md:p-4 rounded-2xl md:rounded-3xl text-xs md:text-sm shadow-sm ${
+                          msg.sender === 'player' 
+                            ? (theme === 'dark' ? 'bg-white text-black rounded-tr-none' : 'bg-black text-white rounded-tr-none') 
+                            : (theme === 'dark' ? 'bg-white/10 border border-white/10 text-white rounded-tl-none' : 'bg-white border border-black/5 rounded-tl-none')
+                        }`}>
+                          {msg.sender === 'player' && msg.companyName && <div className="text-[10px] opacity-75 mb-1 font-bold">{msg.companyName}</div>}
+                          {msg.text}
+                        </div>
+                      </motion.div>
+                    )
                   ))}
                   {isWaitingForAI && (
                     <div className="flex justify-start">
@@ -1771,7 +1868,25 @@ export default function App() {
 
               {/* Right: Offer Controls */}
               <div className="flex-1 md:flex-none md:w-96 p-6 md:p-8 space-y-6 md:space-y-10 overflow-y-auto">
-                <h3 className={`text-[10px] font-bold uppercase tracking-widest ${theme === 'dark' ? 'text-gray-600' : 'text-gray-400'}`}>Votre Offre Finale</h3>
+                <div className={`p-4 md:p-6 rounded-2xl md:rounded-3xl border space-y-3 md:space-y-4 transition-colors ${
+                  theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-gray-50 border-black/5'
+                }`}>
+                  <div className="flex justify-between items-center">
+                    <span className={`text-[10px] font-bold uppercase tracking-widest ${theme === 'dark' ? 'text-gray-600' : 'text-gray-400'}`}>Coût Total</span>
+                    <span className="text-lg md:text-xl font-mono font-bold text-emerald-500">
+                      {((offeredSalary + offeredBenefits.reduce((acc, id) => acc + (gameState?.benefits.find(b => b.id === id)?.costPerEmployee || 0), 0)) * (selectedCandidate.isInternational ? 2 : 1)).toLocaleString()} $
+                    </span>
+                  </div>
+                  <button 
+                    onClick={sendOffer}
+                    disabled={isWaitingForAI}
+                    className={`w-full py-3 md:py-4 rounded-xl md:rounded-2xl font-bold transition-all flex items-center justify-center gap-2 md:gap-3 disabled:opacity-50 shadow-xl ${
+                      theme === 'dark' ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'
+                    }`}
+                  >
+                    Envoyer l'offre <Send className="w-4 h-4 md:w-5 md:h-5" />
+                  </button>
+                </div>
                 
                 <div className="space-y-6 md:space-y-8">
                   <div>
@@ -1812,26 +1927,6 @@ export default function App() {
                       })}
                     </div>
                   </div>
-                </div>
-
-                <div className={`p-4 md:p-6 rounded-2xl md:rounded-3xl border space-y-3 md:space-y-4 transition-colors ${
-                  theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-gray-50 border-black/5'
-                }`}>
-                  <div className="flex justify-between items-center">
-                    <span className={`text-[10px] font-bold uppercase tracking-widest ${theme === 'dark' ? 'text-gray-600' : 'text-gray-400'}`}>Coût Total</span>
-                    <span className="text-lg md:text-xl font-mono font-bold text-emerald-500">
-                      {((offeredSalary + offeredBenefits.reduce((acc, id) => acc + (gameState?.benefits.find(b => b.id === id)?.costPerEmployee || 0), 0)) * (selectedCandidate.isInternational ? 2 : 1)).toLocaleString()} $
-                    </span>
-                  </div>
-                  <button 
-                    onClick={sendOffer}
-                    disabled={isWaitingForAI}
-                    className={`w-full py-3 md:py-4 rounded-xl md:rounded-2xl font-bold transition-all flex items-center justify-center gap-2 md:gap-3 disabled:opacity-50 shadow-xl ${
-                      theme === 'dark' ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'
-                    }`}
-                  >
-                    Envoyer l'offre <Send className="w-4 h-4 md:w-5 md:h-5" />
-                  </button>
                 </div>
               </div>
             </motion.div>

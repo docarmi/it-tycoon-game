@@ -46,10 +46,13 @@ interface Contract {
 }
 
 interface ChatMessage {
-  sender: 'player' | 'employee';
+  sender: 'player' | 'employee' | 'system';
   text: string;
   timestamp: number;
+  companyName?: string;
 }
+
+type EmployeeStatus = 'Actif' | 'Maladie' | 'Congé' | 'Maternité' | 'Maladie long terme';
 
 interface Employee {
   id: string;
@@ -64,6 +67,17 @@ interface Employee {
   chatHistory: ChatMessage[];
   productivityHistory: number[];
   resignationNotice: number | null; // null if not resigning, 1 if notice given
+  status: EmployeeStatus;
+  leaveWeeksRemaining: number;
+}
+
+interface InboxMessage {
+  id: string;
+  from: string;
+  subject: string;
+  text: string;
+  read: boolean;
+  week: number;
 }
 
 interface Player {
@@ -82,6 +96,7 @@ interface Player {
   totalFired: number;
   customerSatisfaction: number;
   resignedThisWeek: Employee[]; // Full objects of employees who resigned this week
+  inbox: InboxMessage[];
 }
 
 // --- Initial State ---
@@ -91,7 +106,6 @@ let candidates: Employee[] = [];
 let availableContracts: Contract[] = [];
 let currentWeek = 1;
 const MAX_WEEKS = 12; // 3 months
-const ABSENTEEISM_RATE = 0.12;
 
 const ROLES: Role[] = [
   "Directeur de production",
@@ -117,7 +131,8 @@ const ROLE_CAPACITY: Record<Role, number> = {
   "Ingenieur informaticien": ROLE_CONFIG["Ingenieur informaticien"].capacity
 };
 
-const NAMES = ["Alice", "Bob", "Charlie", "David", "Eve", "Frank", "Grace", "Heidi", "Ivan", "Judy", "Kevin", "Laura", "Mallory", "Niaj", "Olivia", "Peggy", "Quentin", "Rupert", "Sybil", "Trent", "Uma", "Victor", "Wendy", "Xavier", "Yvonne", "Zelda"];
+const FIRST_NAMES = ["Alice", "Bob", "Charlie", "David", "Eve", "Frank", "Grace", "Heidi", "Ivan", "Judy", "Kevin", "Laura", "Mallory", "Niaj", "Olivia", "Peggy", "Quentin", "Rupert", "Sybil", "Trent", "Uma", "Victor", "Wendy", "Xavier", "Yvonne", "Zelda", "Arthur", "Béatrice", "Cédric", "Diane", "Émile", "Florence", "Gaston", "Hélène", "Igor", "Juliette", "Kamel", "Léa", "Marc", "Nina", "Oscar", "Pauline", "Romain", "Sophie", "Théo", "Valérie"];
+const LAST_NAMES = ["Martin", "Bernard", "Thomas", "Petit", "Robert", "Richard", "Durand", "Dubois", "Moreau", "Laurent", "Simon", "Michel", "Lefebvre", "Leroy", "Roux", "David", "Bertrand", "Morel", "Fournier", "Girard", "Bonnet", "Dupont", "Lambert", "Fontaine", "Rousseau", "Vincent", "Muller", "Lefevre", "Faure", "Andre", "Mercier", "Blanc", "Guerin", "Boyer", "Garnier", "Chevalier", "Francois", "Legrand", "Gauthier", "Garcia", "Perrin", "Robin", "Clement", "Morin", "Nicolas", "Henry", "Roussel", "Mathieu", "Gautier", "Masson", "Marchand", "Duval", "Denis", "Dumont", "Marie", "Lemaire", "Noel", "Meyer", "Dufour", "Meunier", "Brun", "Blanchard", "Giraud", "Joly", "Riviere", "Lucas", "Brunet", "Gaillard", "Barbier", "Arnaud", "Martinez", "Gerard", "Roche", "Renard", "Schmitt", "Roy", "Leroux", "Colin", "Vidal", "Caron", "Aubert", "Gomez", "Benoit", "Picard", "Magnier", "Rouxel", "Lemoine"];
 
 function generateCandidate(isInternational: boolean = false, forcedRole?: Role, forcedSeniority?: "Stagiaire" | "Junior" | "Intermédiaire" | "Sénior"): Employee {
   const role = forcedRole || ROLES[Math.floor(Math.random() * ROLES.length)];
@@ -165,10 +180,13 @@ function generateCandidate(isInternational: boolean = false, forcedRole?: Role, 
   
   const seed = Math.random().toString(36).substring(7);
   const avatarUrl = `https://picsum.photos/seed/${seed}/200/200`;
+  
+  const firstName = FIRST_NAMES[Math.floor(Math.random() * FIRST_NAMES.length)];
+  const lastName = LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
 
   return {
     id: Math.random().toString(36).substr(2, 9),
-    name: (NAMES[Math.floor(Math.random() * NAMES.length)] + " " + String.fromCharCode(65 + Math.floor(Math.random() * 26)) + ".") + (isInternational ? " 🌍" : ""),
+    name: `${firstName} ${lastName}` + (isInternational ? " 🌍" : ""),
     role,
     seniority,
     avatarUrl,
@@ -178,7 +196,9 @@ function generateCandidate(isInternational: boolean = false, forcedRole?: Role, 
     isInternational,
     chatHistory: [],
     productivityHistory: [],
-    resignationNotice: null
+    resignationNotice: null,
+    status: 'Actif',
+    leaveWeeksRemaining: 0
   };
 }
 
@@ -236,13 +256,21 @@ async function startServer() {
     players.forEach((player, id) => {
       player.resignedThisWeek = [];
       
-      // 0. Handle Resignations (at the start of the week processing)
+      // 0. Handle Resignations and Leaves
       const remainingEmployees: Employee[] = [];
       player.employees.forEach(emp => {
         if (emp.resignationNotice !== null) {
           emp.resignationNotice--;
           if (emp.resignationNotice <= 0) {
             player.resignedThisWeek.push(emp);
+            player.inbox.push({
+              id: Math.random().toString(36).substr(2, 9),
+              from: emp.name,
+              subject: "Démission",
+              text: `Je vous informe de ma démission. Ce fut un plaisir de travailler avec vous, mais je pars vers de nouvelles opportunités.`,
+              read: false,
+              week: currentWeek
+            });
             // Employee leaves
             return;
           }
@@ -258,6 +286,48 @@ async function startServer() {
           const resignationChance = player.isUnderTutelage ? 0.3 : 0.15;
           if (Math.random() < resignationChance) {
             emp.resignationNotice = 1; // 1 week notice
+          }
+        }
+
+        // Handle Leaves
+        if (emp.leaveWeeksRemaining > 0) {
+          emp.leaveWeeksRemaining--;
+          if (emp.leaveWeeksRemaining <= 0) {
+            emp.status = 'Actif';
+            player.inbox.push({
+              id: Math.random().toString(36).substr(2, 9),
+              from: "Ressources Humaines",
+              subject: `Retour de ${emp.name}`,
+              text: `${emp.name} est de retour de son congé et est prêt(e) à travailler.`,
+              read: false,
+              week: currentWeek
+            });
+          }
+        } else if (emp.status === 'Actif') {
+          const rand = Math.random();
+          if (rand < 0.002) { // 0.2% Maternity
+            emp.status = 'Maternité';
+            emp.leaveWeeksRemaining = 12;
+          } else if (rand < 0.007) { // 0.5% Long term sickness
+            emp.status = 'Maladie long terme';
+            emp.leaveWeeksRemaining = 4 + Math.floor(Math.random() * 5);
+          } else if (rand < 0.037) { // 3% Vacation
+            emp.status = 'Congé';
+            emp.leaveWeeksRemaining = 1 + Math.floor(Math.random() * 2);
+          } else if (rand < 0.057) { // 2% Short sickness
+            emp.status = 'Maladie';
+            emp.leaveWeeksRemaining = 1;
+          }
+
+          if (emp.status !== 'Actif') {
+            player.inbox.push({
+              id: Math.random().toString(36).substr(2, 9),
+              from: "Ressources Humaines",
+              subject: `Absence : ${emp.name}`,
+              text: `${emp.name} sera absent(e) pour cause de ${emp.status} pendant ${emp.leaveWeeksRemaining} semaine(s).`,
+              read: false,
+              week: currentWeek
+            });
           }
         }
         
@@ -287,7 +357,12 @@ async function startServer() {
           const benefit = BENEFITS.find(b => b.id === bId);
           if (benefit) empMonthlyCost += benefit.costPerEmployee;
         });
-        weeklyPayrollBase += (empMonthlyCost * multiplier) / 4;
+        
+        let weeklyCost = (empMonthlyCost * multiplier) / 4;
+        if (emp.status === 'Maternité' || emp.status === 'Maladie long terme') {
+          weeklyCost = weeklyCost * 0.2; // Pay 20% during long leaves
+        }
+        weeklyPayrollBase += weeklyCost;
       });
 
       // Payroll is paid every 2 weeks
@@ -304,9 +379,11 @@ async function startServer() {
 
       let totalTeamProductivity = 0;
       player.employees.forEach(emp => {
-        const baseCap = ROLE_CAPACITY[emp.role] || 0;
-        // Apply absenteeism rate to individual productivity
-        const empProductivity = baseCap * SENIORITY_MULTIPLIER[emp.seniority] * (1 - ABSENTEEISM_RATE);
+        let empProductivity = 0;
+        if (emp.status === 'Actif') {
+          const baseCap = ROLE_CAPACITY[emp.role] || 0;
+          empProductivity = baseCap * SENIORITY_MULTIPLIER[emp.seniority];
+        }
         totalTeamProductivity += empProductivity;
         
         if (!emp.productivityHistory) emp.productivityHistory = [];
@@ -442,7 +519,8 @@ async function startServer() {
               totalHired: 0,
               totalFired: 0,
               customerSatisfaction: 100,
-              resignedThisWeek: []
+              resignedThisWeek: [],
+              inbox: []
             });
           }
           ws.send(JSON.stringify({ type: "INIT", playerId, benefits: BENEFITS, roles: ROLES }));
@@ -462,6 +540,34 @@ async function startServer() {
               });
               // Keep only last 50 messages
               if (employee.chatHistory.length > 50) employee.chatHistory.shift();
+              broadcastState();
+            }
+          }
+          break;
+
+        case "SEND_CANDIDATE_CHAT":
+          if (playerId && players.has(playerId)) {
+            const candidate = candidates.find(c => c.id === message.candidateId);
+            if (candidate) {
+              if (!candidate.chatHistory) candidate.chatHistory = [];
+              candidate.chatHistory.push({
+                sender: message.sender,
+                text: message.text,
+                timestamp: Date.now(),
+                companyName: message.companyName
+              });
+              if (candidate.chatHistory.length > 50) candidate.chatHistory.shift();
+              broadcastState();
+            }
+          }
+          break;
+
+        case "MARK_EMAIL_READ":
+          if (playerId && players.has(playerId)) {
+            const player = players.get(playerId)!;
+            const email = player.inbox.find(e => e.id === message.emailId);
+            if (email) {
+              email.read = true;
               broadcastState();
             }
           }
