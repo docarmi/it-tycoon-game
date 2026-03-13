@@ -182,6 +182,16 @@ export default function App() {
   const [negotiationChatInput, setNegotiationChatInput] = useState("");
   const [resignedEmployee, setResignedEmployee] = useState<Employee | null>(null);
   const [shownResignations, setShownResignations] = useState<Set<string>>(new Set());
+  const [geminiApiKey, setGeminiApiKey] = useState<string>("");
+
+  useEffect(() => {
+    fetch('/api/config')
+      .then(res => res.json())
+      .then(data => {
+        if (data.geminiApiKey) setGeminiApiKey(data.geminiApiKey);
+      })
+      .catch(err => console.error("Failed to load config:", err));
+  }, []);
 
   const safeSend = (data: any) => {
     if (socket && socket.readyState === WebSocket.OPEN) {
@@ -195,11 +205,7 @@ export default function App() {
     const handleError = (event: ErrorEvent) => {
       console.error("Global error caught:", event.error || event.message);
     };
-    const handleRejection = (event: PromiseRejectionEvent) => {
-      console.error("Unhandled promise rejection:", event.reason);
-    };
     window.addEventListener('error', handleError);
-    window.addEventListener('unhandledrejection', handleRejection);
     
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const ws = new WebSocket(`${protocol}//${window.location.host}`);
@@ -231,7 +237,6 @@ export default function App() {
     return () => {
       ws.close();
       window.removeEventListener('error', handleError);
-      window.removeEventListener('unhandledrejection', handleRejection);
     };
   }, []);
 
@@ -279,7 +284,7 @@ export default function App() {
     // 2. Generate AI response
     setIsTyping(true);
     try {
-      const apiKey = (typeof process !== 'undefined' && process.env.GEMINI_API_KEY) || ((import.meta as any).env?.VITE_GEMINI_API_KEY as string);
+      const apiKey = geminiApiKey || (typeof process !== 'undefined' && process.env.GEMINI_API_KEY) || ((import.meta as any).env?.VITE_GEMINI_API_KEY as string);
       if (!apiKey) {
         console.error("Clé API Gemini manquante. Le chat ne fonctionnera pas sans clé API.");
         return;
@@ -461,9 +466,10 @@ export default function App() {
     setNegotiationHistory(prev => [...prev, { role: 'player', text: playerMsg }]);
 
     try {
-      const apiKey = process.env.GEMINI_API_KEY;
+      const apiKey = geminiApiKey || (typeof process !== 'undefined' && process.env.GEMINI_API_KEY) || ((import.meta as any).env?.VITE_GEMINI_API_KEY as string);
       if (!apiKey) {
-        throw new Error("Clé API Gemini manquante.");
+        console.error("Clé API Gemini manquante.");
+        return;
       }
       const ai = new GoogleGenAI({ apiKey });
       const prompt = `
@@ -567,7 +573,7 @@ export default function App() {
     setNegotiationHistory(prev => [...prev, { role: 'player', text }]);
 
     try {
-      const apiKey = (typeof process !== 'undefined' && process.env.GEMINI_API_KEY) || ((import.meta as any).env?.VITE_GEMINI_API_KEY as string);
+      const apiKey = geminiApiKey || (typeof process !== 'undefined' && process.env.GEMINI_API_KEY) || ((import.meta as any).env?.VITE_GEMINI_API_KEY as string);
       if (!apiKey) {
         console.error("Clé API Gemini manquante pour la négociation.");
         setNegotiationHistory(prev => [...prev, { role: 'worker', text: "Désolé, je ne peux pas discuter pour le moment (Clé API manquante)." }]);
