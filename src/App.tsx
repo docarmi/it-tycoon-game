@@ -1685,14 +1685,14 @@ export default function App() {
                     <motion.div 
                       layout
                       key={candidate.id}
-                      className={`p-6 rounded-[40px] border transition-all flex flex-col justify-between group relative ${
+                      className={`p-6 rounded-[40px] border transition-all flex flex-col justify-between group relative overflow-hidden ${
                         theme === 'dark' 
                           ? 'bg-[#333333] border-white/5 hover:border-white/10' 
                           : 'bg-white border-black/5 shadow-sm hover:shadow-md'
                       } ${candidate.isInternational ? 'ring-4 ring-hec-blue border-hec-blue' : ''}`}
                     >
                       {(candidate.isInternational || candidate.isTargeted) && (
-                        <div className={`text-white text-[10px] font-black uppercase tracking-widest text-center -mx-6 -mt-6 mb-6 rounded-t-[32px] flex overflow-hidden shadow-sm`}>
+                        <div className={`text-white text-[10px] font-black uppercase tracking-widest text-center -mx-6 -mt-6 mb-6 flex shadow-sm`}>
                           {candidate.isInternational && (
                             <div className={`flex-1 py-1 bg-sky-400`}>
                               International
