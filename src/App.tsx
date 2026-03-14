@@ -1,3 +1,4 @@
+// Force update for GitHub sync
 import React, { useState, useEffect } from 'react';
 import { 
   Building2, 
@@ -200,8 +201,8 @@ export default function App() {
   const invitePlayer = (e: React.FormEvent) => {
     e.preventDefault();
     if (inviteEmail.trim()) {
-      const subject = encodeURIComponent("Rejoins-moi sur Tech Talent War !");
-      const body = encodeURIComponent(`Salut !\n\nJe t'invite à jouer à Tech Talent War avec moi. Rejoins la partie ici : ${GAME_URL}\n\nÀ tout de suite !`);
+      const subject = encodeURIComponent("Rejoins-moi sur Chasseur de tête !");
+      const body = encodeURIComponent(`Salut !\n\nJe t'invite à jouer à Chasseur de tête avec moi. Rejoins la partie ici : ${GAME_URL}\n\nÀ tout de suite !`);
       window.location.href = `mailto:${inviteEmail.trim()}?subject=${subject}&body=${body}`;
       setInviteEmail('');
     }
@@ -846,7 +847,10 @@ export default function App() {
           className="bg-white p-8 rounded-3xl shadow-2xl max-w-2xl w-full border border-black/5 flex flex-col md:flex-row gap-8"
         >
           <div className="flex-1 space-y-6">
-            <h1 className="text-4xl font-black tracking-tighter text-black">TECH TALENT WAR</h1>
+            <h1 className="text-4xl font-black tracking-tighter text-black leading-none">
+              CHASSEUR<br/>
+              <span className="text-indigo-600">DE TÊTE</span>
+            </h1>
             <p className="text-gray-500 italic">Simulateur d'attractivité et de gestion RH</p>
             
             <div className="space-y-4 pt-4">
@@ -905,7 +909,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => {
-                    navigator.clipboard.writeText(`Rejoins ma partie sur Tech Talent War : ${GAME_URL}`);
+                    navigator.clipboard.writeText(`Rejoins ma partie sur Chasseur de tête : ${GAME_URL}`);
                     alert('Lien copié ! Vous pouvez le coller dans votre courriel.');
                   }}
                   className="w-full bg-indigo-50 text-indigo-600 border border-indigo-100 px-4 py-3 rounded-xl font-bold hover:bg-indigo-100 transition-all text-sm flex items-center justify-center gap-2"
@@ -940,8 +944,8 @@ export default function App() {
                       type="button"
                       onClick={() => {
                         if (inviteEmail.trim()) {
-                          const subject = encodeURIComponent("Rejoins-moi sur Tech Talent War !");
-                          const body = encodeURIComponent(`Salut !\n\nJe t'invite à jouer à Tech Talent War avec moi. Rejoins la partie ici : ${GAME_URL}\n\nÀ tout de suite !`);
+                          const subject = encodeURIComponent("Rejoins-moi sur Chasseur de tête !");
+                          const body = encodeURIComponent(`Salut !\n\nJe t'invite à jouer à Chasseur de tête avec moi. Rejoins la partie ici : ${GAME_URL}\n\nÀ tout de suite !`);
                           window.open(`https://outlook.office.com/mail/deeplink/compose?to=${inviteEmail.trim()}&subject=${subject}&body=${body}`, '_blank');
                           setInviteEmail('');
                         }
