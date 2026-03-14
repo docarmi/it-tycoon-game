@@ -98,6 +98,7 @@ interface Player {
   weeksAtRisk: number;
   isUnderTutelage: boolean;
   targetedRecruitCount: number;
+  targetedInternationalCount: number;
   totalHired: number;
   totalFired: number;
   customerSatisfaction: number;
@@ -542,6 +543,7 @@ async function startServer() {
               weeksAtRisk: 0,
               isUnderTutelage: false,
               targetedRecruitCount: 0,
+              targetedInternationalCount: 0,
               totalHired: 0,
               totalFired: 0,
               customerSatisfaction: 100,
@@ -721,10 +723,14 @@ async function startServer() {
           if (playerId && players.has(playerId)) {
             const player = players.get(playerId)!;
             if (player.isUnderTutelage) return;
-            if (player.money >= 5000) {
-              player.money -= 5000;
-              const newCandidate = generateCandidate(true);
-              candidates.push(newCandidate);
+            
+            const cost = player.targetedInternationalCount >= 2 ? 5000 : 0;
+            
+            if (player.money >= cost) {
+              player.money -= cost;
+              player.targetedInternationalCount++;
+              const newCandidate = generateCandidate(true, message.role, message.seniority);
+              candidates.unshift(newCandidate);
               broadcastState();
             }
           }

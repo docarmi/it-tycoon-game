@@ -171,6 +171,7 @@ interface Player {
   weeksAtRisk: number;
   isUnderTutelage: boolean;
   targetedRecruitCount: number;
+  targetedInternationalCount: number;
   totalHired: number;
   totalFired: number;
   customerSatisfaction: number;
@@ -424,7 +425,7 @@ export default function App() {
   const GanttChart = ({ contracts }: { contracts: Contract[] }) => {
     if (contracts.length === 0) return (
       <div className={`rounded-3xl p-12 text-center border-2 border-dashed transition-colors ${
-        theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-gray-50 border-black/10'
+        theme === 'dark' ? 'bg-hec-light/20 border-white/10' : 'bg-gray-50 border-black/10'
       }`}>
         <p className={`text-sm italic ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Aucun contrat actif. Allez au marché pour en trouver.</p>
       </div>
@@ -432,9 +433,9 @@ export default function App() {
 
     return (
       <div className={`rounded-3xl border shadow-sm overflow-hidden transition-colors ${
-        theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-white border-black/5'
+        theme === 'dark' ? 'bg-hec-light/20 border-white/10' : 'bg-white border-black/5'
       }`}>
-        <div className={`p-6 border-b flex justify-between items-center ${theme === 'dark' ? 'border-white/10 bg-white/5' : 'border-black/5 bg-gray-50'}`}>
+        <div className={`p-6 border-b flex justify-between items-center ${theme === 'dark' ? 'border-white/10 bg-white/10' : 'border-black/5 bg-gray-50'}`}>
           <h3 className={`text-xs font-bold uppercase tracking-widest ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Suivi de Production (Gantt)</h3>
           <div className="flex gap-4 text-[10px] font-bold uppercase">
             <div className="flex items-center gap-1.5"><div className="w-2 h-2 bg-hec-blue rounded-full"></div> Progress</div>
@@ -479,7 +480,16 @@ export default function App() {
   };
 
   const searchInternational = () => {
-    safeSend({ type: 'SEARCH_INTERNATIONAL' });
+    if (selectedRecruitRole) {
+      playRecruitSound();
+      setIsInternationalRecruiting(true);
+      safeSend({ 
+        type: 'SEARCH_INTERNATIONAL', 
+        role: selectedRecruitRole, 
+        seniority: selectedRecruitSeniority 
+      });
+      setTimeout(() => setIsInternationalRecruiting(false), 1500);
+    }
   };
 
   const [isWeekChanging, setIsWeekChanging] = useState(false);
@@ -491,6 +501,7 @@ export default function App() {
   };
 
   const [isRecruiting, setIsRecruiting] = useState(false);
+  const [isInternationalRecruiting, setIsInternationalRecruiting] = useState(false);
 
   const playRecruitSound = () => {
     try {
@@ -974,20 +985,20 @@ export default function App() {
 
   if (!me) {
     return (
-      <div className={`min-h-screen flex items-center justify-center p-4 ${theme === 'dark' ? 'bg-[#0a0a0a]' : 'bg-hec-light'}`}>
+      <div className={`min-h-screen flex items-center justify-center p-4 ${theme === 'dark' ? 'bg-hec-blue' : 'bg-hec-light'}`}>
         <div className="flex flex-col items-center gap-4">
           <Loader2 className={`w-12 h-12 animate-spin ${theme === 'dark' ? 'text-white' : 'text-hec-blue'}`} />
-          <p className={`text-sm font-bold uppercase tracking-widest ${theme === 'dark' ? 'text-gray-500' : 'text-hec-blue/60'}`}>Initialisation de votre studio...</p>
+          <p className={`text-sm font-bold uppercase tracking-widest ${theme === 'dark' ? 'text-white/60' : 'text-hec-blue/60'}`}>Initialisation de votre studio...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${theme === 'dark' ? 'bg-[#0a0a0a] text-white' : 'bg-hec-light text-gray-900'}`}>
+    <div className={`min-h-screen transition-colors duration-300 ${theme === 'dark' ? 'bg-hec-blue text-white' : 'bg-hec-light text-gray-900'}`}>
       {/* Header */}
       <header className={`sticky top-0 z-50 border-b backdrop-blur-md transition-colors duration-300 ${
-        theme === 'dark' ? 'bg-black/50 border-white/10' : 'bg-white/80 border-black/5'
+        theme === 'dark' ? 'bg-hec-blue/80 border-white/10' : 'bg-white/80 border-black/5'
       }`}>
         <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 md:h-20 flex items-center justify-between">
           <div className="flex items-center gap-3 md:gap-4">
@@ -1136,7 +1147,7 @@ export default function App() {
               {/* Top Row: Financials & Health */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                 <div className={`p-6 rounded-3xl border shadow-sm transition-colors ${
-                  theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-white border-black/5'
+                  theme === 'dark' ? 'bg-hec-light/20 border-white/10' : 'bg-white border-black/5'
                 }`}>
                   <div className="flex items-center justify-between mb-4">
                     <div className="p-2 bg-emerald-500/10 rounded-xl">
@@ -1151,7 +1162,7 @@ export default function App() {
                 </div>
 
                 <div className={`p-6 rounded-3xl border shadow-sm transition-colors ${
-                  theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-white border-black/5'
+                  theme === 'dark' ? 'bg-hec-light/20 border-white/10' : 'bg-white border-black/5'
                 }`}>
                   <div className="flex items-center justify-between mb-4">
                     <div className="p-2 bg-rose-500/10 rounded-xl">
@@ -1166,7 +1177,7 @@ export default function App() {
                 </div>
 
                 <div className={`p-6 rounded-3xl border shadow-sm transition-colors ${
-                  theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-white border-black/5'
+                  theme === 'dark' ? 'bg-hec-light/20 border-white/10' : 'bg-white border-black/5'
                 }`}>
                   <div className="flex items-center justify-between mb-4">
                     <div className="p-2 bg-yellow-500/10 rounded-xl">
@@ -1189,7 +1200,7 @@ export default function App() {
                 </div>
 
                 <div className={`p-6 rounded-3xl border shadow-sm transition-colors ${
-                  theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-white border-black/5'
+                  theme === 'dark' ? 'bg-hec-light/20 border-white/10' : 'bg-white border-black/5'
                 }`}>
                   <div className="flex items-center justify-between mb-4">
                     <div className="p-2 bg-pink-500/10 rounded-xl">
@@ -1211,7 +1222,7 @@ export default function App() {
                 </div>
                 <div className="space-y-6">
                   <div className={`p-6 rounded-3xl border shadow-sm space-y-4 transition-colors ${
-                    theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-white border-black/5'
+                    theme === 'dark' ? 'bg-hec-light/20 border-white/10' : 'bg-white border-black/5'
                   }`}>
                     <h3 className={`text-xs font-bold uppercase tracking-widest ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Utilisation Capacité</h3>
                     <div className="flex justify-between items-center">
@@ -1231,7 +1242,7 @@ export default function App() {
                   </div>
 
                   <div className={`p-6 rounded-3xl border shadow-sm space-y-4 transition-colors ${
-                    theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-white border-black/5'
+                    theme === 'dark' ? 'bg-hec-light/20 border-white/10' : 'bg-white border-black/5'
                   }`}>
                     <h3 className={`text-xs font-bold uppercase tracking-widest ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Évolution Capacité</h3>
                     <div className="flex items-end gap-1 h-24">
@@ -1269,7 +1280,7 @@ export default function App() {
               {/* Bottom Row: Team & Benefits */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className={`lg:col-span-2 rounded-3xl border shadow-sm overflow-hidden transition-colors ${
-                  theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-white border-black/5'
+                  theme === 'dark' ? 'bg-hec-light/20 border-white/10' : 'bg-white border-black/5'
                 }`}>
                   <div className={`p-6 border-b flex items-center justify-between ${theme === 'dark' ? 'border-white/10' : 'border-black/5'}`}>
                     <h3 className="text-lg font-bold flex items-center gap-2">
@@ -1373,7 +1384,7 @@ export default function App() {
                 </div>
 
                 <div className={`p-6 rounded-3xl border shadow-sm h-fit transition-colors ${
-                  theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-white border-black/5'
+                  theme === 'dark' ? 'bg-hec-light/20 border-white/10' : 'bg-white border-black/5'
                 }`}>
                   <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
                     <Settings className="w-5 h-5" /> Avantages Sociaux
@@ -1485,7 +1496,7 @@ export default function App() {
                           className={`flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2 rounded-full border cursor-pointer transition-all ${
                             canApply 
                               ? (theme === 'dark' ? 'bg-hec-accent/20 border-hec-accent/50 hover:bg-hec-accent/30' : 'bg-hec-blue/10 border-hec-blue/20 hover:bg-hec-blue/20 shadow-md')
-                              : (theme === 'dark' ? 'bg-white/5 border-white/10 hover:bg-white/10' : 'bg-white border-black/10 hover:bg-gray-50 shadow-sm')
+                              : (theme === 'dark' ? 'bg-hec-light/10 border-white/10 hover:bg-hec-light/20' : 'bg-white border-black/10 hover:bg-gray-50 shadow-sm')
                           }`}
                         >
                           <Briefcase className={`transition-all ${canApply ? 'w-5 h-5 sm:w-6 sm:h-6 text-hec-blue animate-pulse' : 'w-4 h-4 text-hec-accent'}`} />
@@ -1561,85 +1572,97 @@ export default function App() {
               <div className="space-y-8">
                 {/* HR Service Header */}
                 <div className={`p-8 rounded-[40px] border transition-all ${
-                  theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-white border-black/5 shadow-sm'
+                  theme === 'dark' ? 'bg-hec-light border-hec-blue/20 text-hec-blue' : 'bg-white border-black/5 shadow-sm'
                 }`}>
                   <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
                     <div className="space-y-2">
                       <div className="flex items-center gap-3">
-                        <div className={`p-3 rounded-2xl ${theme === 'dark' ? 'bg-hec-accent/20 text-hec-accent' : 'bg-hec-blue/10 text-hec-blue'}`}>
+                        <div className={`p-3 rounded-2xl ${theme === 'dark' ? 'bg-hec-blue/10 text-hec-blue' : 'bg-hec-blue/10 text-hec-blue'}`}>
                           <UserPlus className="w-6 h-6" />
                         </div>
                         <h2 className="text-2xl md:text-3xl font-black tracking-tighter uppercase">
                           Service de RH
                         </h2>
                       </div>
-                      <p className={`text-sm font-medium ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>
+                      <p className={`text-sm font-medium ${theme === 'dark' ? 'text-hec-blue/60' : 'text-gray-400'}`}>
                         Gérez vos recrutements et attirez les meilleurs talents pour votre entreprise.
                       </p>
                     </div>
 
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
                       <div className={`flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-2 rounded-2xl border transition-all ${
-                        theme === 'dark' ? 'bg-black/40 border-white/10' : 'bg-gray-50 border-black/5'
+                        theme === 'dark' ? 'bg-hec-light border-hec-blue/10' : 'bg-gray-50 border-black/5'
                       }`}>
                         <div className="flex items-center gap-2 border-b sm:border-b-0 sm:border-r border-black/5 pb-2 sm:pb-0 px-2">
                           <select 
                             value={selectedRecruitRole} 
                             onChange={(e) => setSelectedRecruitRole(e.target.value as Role)}
-                            className={`bg-transparent text-sm font-bold outline-none py-1 min-w-[140px] ${theme === 'dark' ? 'text-white' : 'text-black'}`}
+                            className={`bg-transparent text-sm font-bold outline-none py-1 min-w-[140px] ${theme === 'dark' ? 'text-hec-blue' : 'text-black'}`}
                           >
-                            {roles.map(role => <option key={role} value={role} className={theme === 'dark' ? 'bg-[#1a1a1a]' : ''}>{role}</option>)}
+                            {roles.map(role => <option key={role} value={role} className={theme === 'dark' ? 'bg-hec-light' : ''}>{role}</option>)}
                           </select>
                           <div className="w-px h-4 bg-black/10 hidden sm:block" />
                           <select 
                             value={selectedRecruitSeniority} 
                             onChange={(e) => setSelectedRecruitSeniority(e.target.value as any)}
-                            className={`bg-transparent text-sm font-bold outline-none py-1 min-w-[100px] ${theme === 'dark' ? 'text-white' : 'text-black'}`}
+                            className={`bg-transparent text-sm font-bold outline-none py-1 min-w-[100px] ${theme === 'dark' ? 'text-hec-blue' : 'text-black'}`}
                           >
-                            <option value="Stagiaire" className={theme === 'dark' ? 'bg-[#1a1a1a]' : ''}>Stagiaire</option>
-                            <option value="Junior" className={theme === 'dark' ? 'bg-[#1a1a1a]' : ''}>Junior</option>
-                            <option value="Intermédiaire" className={theme === 'dark' ? 'bg-[#1a1a1a]' : ''}>Intermédiaire</option>
-                            <option value="Sénior" className={theme === 'dark' ? 'bg-[#1a1a1a]' : ''}>Sénior</option>
+                            <option value="Stagiaire" className={theme === 'dark' ? 'bg-hec-light' : ''}>Stagiaire</option>
+                            <option value="Junior" className={theme === 'dark' ? 'bg-hec-light' : ''}>Junior</option>
+                            <option value="Intermédiaire" className={theme === 'dark' ? 'bg-hec-light' : ''}>Intermédiaire</option>
+                            <option value="Sénior" className={theme === 'dark' ? 'bg-hec-light' : ''}>Sénior</option>
                           </select>
                         </div>
-                        <button 
-                          onClick={targetedRecruitment}
-                          disabled={me?.isUnderTutelage || isRecruiting}
-                          className={`px-6 py-3 rounded-xl text-sm font-black transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg ${
-                            isRecruiting 
-                              ? 'bg-emerald-500 text-white'
-                              : me && me.targetedRecruitCount >= 2 
-                                ? 'bg-amber-400 hover:bg-amber-500 text-amber-950' 
-                                : 'bg-hec-blue hover:bg-hec-accent text-white'
-                          }`}
-                        >
-                          {isRecruiting ? (
-                            <>
-                              <CheckCircle className="w-4 h-4" />
-                              Candidat trouvé !
-                            </>
-                          ) : (
-                            <>
-                              <Search className="w-4 h-4" />
-                              Recruter ({me && me.targetedRecruitCount < 2 ? 'Gratuit' : '5 000 $'})
-                            </>
-                          )}
-                        </button>
-                      </div>
+                        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                          <button 
+                            onClick={targetedRecruitment}
+                            disabled={me?.isUnderTutelage || isRecruiting}
+                            className={`px-6 py-3 rounded-xl text-sm font-black transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg flex-1 ${
+                              isRecruiting 
+                                ? 'bg-emerald-500 text-white'
+                                : me && me.targetedRecruitCount >= 2 
+                                  ? 'bg-amber-400 hover:bg-amber-500 text-amber-950' 
+                                  : 'bg-hec-blue hover:bg-hec-accent text-white'
+                            }`}
+                          >
+                            {isRecruiting ? (
+                              <>
+                                <CheckCircle className="w-4 h-4" />
+                                Candidat trouvé !
+                              </>
+                            ) : (
+                              <>
+                                <Search className="w-4 h-4" />
+                                Local ({me && me.targetedRecruitCount < 2 ? 'Gratuit' : '5 000 $'})
+                              </>
+                            )}
+                          </button>
 
-                      <button 
-                        onClick={searchInternational}
-                        disabled={me?.isUnderTutelage}
-                        className={`px-6 py-4 rounded-2xl text-sm font-bold transition-all flex items-center justify-center gap-3 shadow-sm disabled:opacity-50 border ${
-                          theme === 'dark' 
-                            ? 'bg-white/5 border-white/10 text-white hover:bg-white/10' 
-                            : 'bg-white border-black/10 text-black hover:bg-gray-50'
-                        }`}
-                      >
-                        <span className="text-xl">🌍</span>
-                        <span>Recruter à l'international</span>
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${theme === 'dark' ? 'bg-white/10' : 'bg-gray-100'}`}>5 000 $</span>
-                      </button>
+                          <button 
+                            onClick={searchInternational}
+                            disabled={me?.isUnderTutelage || isInternationalRecruiting}
+                            className={`px-6 py-3 rounded-xl text-sm font-black transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg flex-1 ${
+                              isInternationalRecruiting 
+                                ? 'bg-emerald-500 text-white'
+                                : me && me.targetedInternationalCount >= 2 
+                                  ? 'bg-amber-400 hover:bg-amber-500 text-amber-950' 
+                                  : 'bg-hec-blue hover:bg-hec-accent text-white'
+                            }`}
+                          >
+                            {isInternationalRecruiting ? (
+                              <>
+                                <CheckCircle className="w-4 h-4" />
+                                Candidat trouvé !
+                              </>
+                            ) : (
+                              <>
+                                <span className="text-lg">🌍</span>
+                                Intl ({me && me.targetedInternationalCount < 2 ? 'Gratuit' : '5 000 $'})
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1656,19 +1679,30 @@ export default function App() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {gameState?.candidates.map(candidate => (
+                  {[...(gameState?.candidates || [])]
+                    .sort((a, b) => (b.isInternational ? 1 : 0) - (a.isInternational ? 1 : 0))
+                    .map(candidate => (
                     <motion.div 
                       layout
                       key={candidate.id}
-                      className={`p-6 rounded-[32px] border transition-all flex flex-col justify-between group relative ${
+                      className={`p-6 rounded-[40px] border transition-all flex flex-col justify-between group relative ${
                         theme === 'dark' 
-                          ? 'bg-white/5 border-white/10 hover:border-white/20' 
+                          ? 'bg-[#333333] border-white/5 hover:border-white/10' 
                           : 'bg-white border-black/5 shadow-sm hover:shadow-md'
-                      } ${candidate.isInternational ? 'ring-2 ring-hec-accent/20' : ''}`}
+                      } ${candidate.isInternational ? 'ring-4 ring-hec-blue border-hec-blue' : ''}`}
                     >
-                      {candidate.isTargeted && (
-                        <div className="bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest text-center py-1 -mx-6 -mt-6 mb-6 rounded-t-[32px]">
-                          Négocié
+                      {(candidate.isInternational || candidate.isTargeted) && (
+                        <div className={`text-white text-[10px] font-black uppercase tracking-widest text-center -mx-6 -mt-6 mb-6 rounded-t-[32px] flex overflow-hidden shadow-sm`}>
+                          {candidate.isInternational && (
+                            <div className={`flex-1 py-1 bg-sky-400`}>
+                              International
+                            </div>
+                          )}
+                          {candidate.isTargeted && (
+                            <div className={`flex-1 py-1 bg-emerald-500`}>
+                              Négocié
+                            </div>
+                          )}
                         </div>
                       )}
                       <div>
@@ -1680,11 +1714,6 @@ export default function App() {
                               className={`w-16 h-16 rounded-2xl object-cover border-2 shadow-lg transition-transform group-hover:scale-105 ${theme === 'dark' ? 'border-white/10' : 'border-white'}`}
                               referrerPolicy="no-referrer"
                             />
-                            {candidate.isInternational && (
-                              <div className="absolute -top-2 -right-2 bg-hec-blue text-white p-1 rounded-lg shadow-lg">
-                                <span className="text-[10px] font-bold">INTL</span>
-                              </div>
-                            )}
                           </div>
                           <div className="text-right">
                             <p className={`text-[10px] font-bold uppercase tracking-widest ${theme === 'dark' ? 'text-gray-600' : 'text-gray-400'}`}>Attente Salariale</p>
@@ -1694,19 +1723,19 @@ export default function App() {
                             {candidate.isInternational && <span className="text-[10px] text-hec-accent font-bold block">Coût X2</span>}
                           </div>
                         </div>
-                        <h4 className="text-lg font-black mb-1">{candidate.name}</h4>
-                        <p className={`text-sm mb-4 font-bold ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>{candidate.role}</p>
+                        <h4 className={`text-xl font-black mb-1 ${theme === 'dark' ? 'text-white' : 'text-black'}`}>{candidate.name}</h4>
+                        <p className={`text-sm mb-4 font-bold ${theme === 'dark' ? 'text-gray-400' : 'text-gray-400'}`}>{candidate.role}</p>
                         <div className="flex flex-wrap items-center gap-2 mb-4">
                           <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider border ${
-                            candidate.seniority === 'Sénior' ? (theme === 'dark' ? 'bg-hec-accent/10 text-hec-accent border-hec-accent/20' : 'bg-hec-blue/10 text-hec-blue border-hec-blue/10') : 
-                            candidate.seniority === 'Intermédiaire' ? (theme === 'dark' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-blue-50 text-blue-700 border-blue-100') :
-                            candidate.seniority === 'Stagiaire' ? (theme === 'dark' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-amber-50 text-amber-700 border-amber-100') :
-                            (theme === 'dark' ? 'bg-gray-500/10 text-gray-400 border-white/10' : 'bg-gray-100 text-gray-600 border-gray-200')
+                            candidate.seniority === 'Sénior' ? (theme === 'dark' ? 'bg-white text-black border-white' : 'bg-hec-blue/10 text-hec-blue border-hec-blue/10') : 
+                            candidate.seniority === 'Intermédiaire' ? (theme === 'dark' ? 'bg-blue-500 text-white border-blue-500' : 'bg-blue-50 text-blue-700 border-blue-100') :
+                            candidate.seniority === 'Stagiaire' ? (theme === 'dark' ? 'bg-amber-500 text-white border-amber-500' : 'bg-amber-50 text-amber-700 border-amber-100') :
+                            (theme === 'dark' ? 'bg-white text-black border-white' : 'bg-gray-100 text-gray-600 border-gray-200')
                           }`}>
                             {candidate.seniority}
                           </span>
                           <div className={`px-3 py-1 rounded-full flex items-center gap-1 border transition-colors ${
-                            theme === 'dark' ? 'bg-hec-accent/10 border-hec-accent/20 text-hec-accent' : 'bg-hec-blue/10 border-hec-blue/10 text-hec-blue'
+                            theme === 'dark' ? 'bg-white border-white text-black' : 'bg-hec-blue/10 border-hec-blue/10 text-hec-blue'
                           }`}>
                             <TrendingUp className="w-3 h-3" />
                             <span className="text-[10px] font-black uppercase tracking-wider">
@@ -1716,7 +1745,7 @@ export default function App() {
                         </div>
                         
                         <div className="mb-6">
-                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Préférences</p>
+                          <p className={`text-[10px] font-bold uppercase tracking-widest mb-2 ${theme === 'dark' ? 'text-white' : 'text-gray-400'}`}>Préférences</p>
                           <div className="flex flex-wrap gap-2">
                             {candidate.preferredBenefits.map(bId => {
                               const benefit = gameState.benefits.find(b => b.id === bId);
@@ -1724,11 +1753,13 @@ export default function App() {
                               return (
                                 <span 
                                   key={bId} 
-                                  className={`text-[10px] px-2 py-1 rounded-md font-bold flex items-center gap-1 ${
-                                    isOffered ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                                  className={`text-[10px] px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 ${
+                                    theme === 'dark' 
+                                      ? 'bg-white text-gray-600' 
+                                      : (isOffered ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500')
                                   }`}
                                 >
-                                  {isOffered && <CheckCircle2 className="w-3 h-3" />}
+                                  {isOffered && theme !== 'dark' && <CheckCircle2 className="w-3 h-3" />}
                                   {benefit?.name}
                                 </span>
                               );
@@ -1779,9 +1810,9 @@ export default function App() {
                               <motion.div 
                                 layout
                                 key={ghost.id}
-                                className={`p-6 rounded-[32px] border transition-all flex flex-col justify-between group relative overflow-hidden ${
+                                className={`p-6 rounded-[40px] border transition-all flex flex-col justify-between group relative overflow-hidden ${
                                   theme === 'dark' 
-                                    ? 'bg-purple-900/10 border-purple-500/20 hover:border-purple-500/40' 
+                                    ? 'bg-[#333333] border-white/5 hover:border-white/10' 
                                     : 'bg-purple-50 border-purple-200 shadow-sm hover:shadow-md'
                                 }`}
                               >
@@ -1816,23 +1847,27 @@ export default function App() {
                                       </p>
                                     </div>
                                   </div>
-                                  <h4 className="text-lg font-black mb-1">{ghost.name}</h4>
-                                  <p className={`text-sm mb-4 font-bold ${theme === 'dark' ? 'text-purple-400' : 'text-purple-600'}`}>{ghost.role}</p>
+                                  <h4 className={`text-xl font-black mb-1 ${theme === 'dark' ? 'text-white' : 'text-black'}`}>{ghost.name}</h4>
+                                  <p className={`text-sm mb-4 font-bold ${theme === 'dark' ? 'text-gray-400' : 'text-purple-600'}`}>{ghost.role}</p>
                                   <div className="flex flex-wrap items-center gap-2 mb-4">
                                     <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider border ${
-                                      theme === 'dark' ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' : 'bg-purple-100 text-purple-700 border-purple-200'
+                                      theme === 'dark' ? 'bg-white text-black border-white' : 'bg-purple-100 text-purple-700 border-purple-200'
                                     }`}>
                                       {ghost.seniority}
                                     </span>
                                   </div>
-                                  <div className={`p-3 rounded-xl text-xs font-medium italic mb-6 ${theme === 'dark' ? 'bg-black/40 text-gray-400' : 'bg-white/60 text-gray-600'}`}>
+                                  <div className={`p-3 rounded-xl text-xs font-medium italic mb-6 ${theme === 'dark' ? 'bg-white/10 text-white' : 'bg-white/60 text-gray-600'}`}>
                                     "Je cherche une entreprise qui offre de meilleures conditions et avantages sociaux."
                                   </div>
                                 </div>
                                 <button 
                                   onClick={() => startNegotiation(ghost)}
                                   disabled={me?.isUnderTutelage || ghost.companyId === playerId}
-                                  className="w-full py-4 rounded-2xl font-black text-sm transition-all flex items-center justify-center gap-3 shadow-lg shadow-purple-500/20 bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50 relative z-20"
+                                  className={`w-full py-4 rounded-2xl font-black text-sm transition-all flex items-center justify-center gap-3 shadow-lg relative z-20 ${
+                                    theme === 'dark' 
+                                      ? 'bg-white text-black hover:bg-gray-200' 
+                                      : 'bg-purple-600 hover:bg-purple-700 text-white'
+                                  } disabled:opacity-50`}
                                 >
                                   {ghost.companyId === playerId ? "C'est votre employé" : "Négocier l'offre"} <MessageSquare className="w-5 h-5" />
                                 </button>
@@ -2103,10 +2138,10 @@ export default function App() {
                     }}
                     transition={{ duration: 1.5, repeat: Infinity }}
                   >
-                    <Handshake className="text-emerald-600 w-24 h-24 md:w-40 md:h-40" />
+                    <Handshake className="text-hec-blue w-24 h-24 md:w-40 md:h-40" />
                   </motion.div>
                   <div className="text-center">
-                    <h2 className="text-2xl md:text-4xl font-black text-emerald-600 uppercase tracking-tighter italic">Contrat Signé !</h2>
+                    <h2 className="text-2xl md:text-4xl font-black text-hec-blue uppercase tracking-tighter italic">Contrat Signé !</h2>
                     <p className="text-xs md:text-sm text-gray-500 font-medium mt-1 md:mt-2">Bienvenue dans l'équipe.</p>
                   </div>
                 </>
@@ -2141,7 +2176,7 @@ export default function App() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               className={`rounded-[32px] md:rounded-[40px] shadow-2xl max-w-5xl w-full h-[95vh] md:h-[90vh] flex flex-col md:flex-row overflow-hidden border transition-colors ${
-                theme === 'dark' ? 'bg-[#0a0a0a] border-white/10' : 'bg-white border-black/5'
+                theme === 'dark' ? 'bg-hec-blue border-white/10' : 'bg-white border-black/5'
               }`}
             >
               {/* Left: Chat */}
@@ -2323,7 +2358,7 @@ export default function App() {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               className={`w-full max-w-lg rounded-[40px] shadow-2xl overflow-hidden flex flex-col h-[650px] border transition-colors ${
-                theme === 'dark' ? 'bg-[#0a0a0a] border-white/10' : 'bg-white border-black/5'
+                theme === 'dark' ? 'bg-hec-blue border-white/10' : 'bg-white border-black/5'
               }`}
             >
               <div className={`p-6 border-b flex items-center justify-between transition-colors ${

@@ -9,3 +9,7 @@
 body {
   background-color: var(--color-hec-light);
 }
+
+.dark body {
+  background-color: var(--color-hec-blue);
+}
