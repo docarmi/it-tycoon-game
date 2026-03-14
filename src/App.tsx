@@ -437,7 +437,7 @@ export default function App() {
         <div className={`p-6 border-b flex justify-between items-center ${theme === 'dark' ? 'border-white/10 bg-white/5' : 'border-black/5 bg-gray-50'}`}>
           <h3 className={`text-xs font-bold uppercase tracking-widest ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Suivi de Production (Gantt)</h3>
           <div className="flex gap-4 text-[10px] font-bold uppercase">
-            <div className="flex items-center gap-1.5"><div className="w-2 h-2 bg-indigo-600 rounded-full"></div> Progress</div>
+            <div className="flex items-center gap-1.5"><div className="w-2 h-2 bg-hec-blue rounded-full"></div> Progress</div>
             <div className="flex items-center gap-1.5"><div className="w-2 h-2 bg-rose-500 rounded-full"></div> Retard</div>
           </div>
         </div>
@@ -467,7 +467,7 @@ export default function App() {
                   <motion.div 
                     initial={{ width: 0 }}
                     animate={{ width: `${progressPercent}%` }}
-                    className={`h-full rounded-full ${isLate ? 'bg-rose-500' : 'bg-indigo-600'}`}
+                    className={`h-full rounded-full ${isLate ? 'bg-rose-500' : 'bg-hec-blue'}`}
                   />
                 </div>
               </div>
@@ -840,16 +840,16 @@ export default function App() {
 
   if (!isJoined) {
     return (
-      <div className="min-h-screen bg-[#E4E3E0] flex items-center justify-center p-4 font-sans">
+      <div className="min-h-screen bg-hec-light flex items-center justify-center p-4 font-sans">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="bg-white p-8 rounded-3xl shadow-2xl max-w-2xl w-full border border-black/5 flex flex-col md:flex-row gap-8"
         >
           <div className="flex-1 space-y-6">
-            <h1 className="text-4xl font-black tracking-tighter text-black leading-none">
+            <h1 className="text-4xl font-black tracking-tighter text-hec-blue leading-none">
               CHASSEUR<br/>
-              <span className="text-indigo-600">DE TÊTE</span>
+              <span className="text-hec-accent">DE TÊTE</span>
             </h1>
             <p className="text-gray-500 italic">Simulateur d'attractivité et de gestion RH</p>
             
@@ -912,7 +912,7 @@ export default function App() {
                     navigator.clipboard.writeText(`Rejoins ma partie sur Chasseur de tête : ${GAME_URL}`);
                     alert('Lien copié ! Vous pouvez le coller dans votre courriel.');
                   }}
-                  className="w-full bg-indigo-50 text-indigo-600 border border-indigo-100 px-4 py-3 rounded-xl font-bold hover:bg-indigo-100 transition-all text-sm flex items-center justify-center gap-2"
+                  className="w-full bg-hec-blue/10 text-hec-blue border border-hec-blue/20 px-4 py-3 rounded-xl font-bold hover:bg-hec-blue/20 transition-all text-sm flex items-center justify-center gap-2"
                 >
                   <Copy className="w-4 h-4" /> Copier le lien d'invitation
                 </button>
@@ -974,17 +974,17 @@ export default function App() {
 
   if (!me) {
     return (
-      <div className={`min-h-screen flex items-center justify-center p-4 ${theme === 'dark' ? 'bg-[#0a0a0a]' : 'bg-[#E4E3E0]'}`}>
+      <div className={`min-h-screen flex items-center justify-center p-4 ${theme === 'dark' ? 'bg-[#0a0a0a]' : 'bg-hec-light'}`}>
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className={`w-12 h-12 animate-spin ${theme === 'dark' ? 'text-white' : 'text-black'}`} />
-          <p className={`text-sm font-bold uppercase tracking-widest ${theme === 'dark' ? 'text-gray-500' : 'text-gray-500'}`}>Initialisation de votre studio...</p>
+          <Loader2 className={`w-12 h-12 animate-spin ${theme === 'dark' ? 'text-white' : 'text-hec-blue'}`} />
+          <p className={`text-sm font-bold uppercase tracking-widest ${theme === 'dark' ? 'text-gray-500' : 'text-hec-blue/60'}`}>Initialisation de votre studio...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${theme === 'dark' ? 'bg-[#0a0a0a] text-white' : 'bg-[#f8f9fa] text-gray-900'}`}>
+    <div className={`min-h-screen transition-colors duration-300 ${theme === 'dark' ? 'bg-[#0a0a0a] text-white' : 'bg-hec-light text-gray-900'}`}>
       {/* Header */}
       <header className={`sticky top-0 z-50 border-b backdrop-blur-md transition-colors duration-300 ${
         theme === 'dark' ? 'bg-black/50 border-white/10' : 'bg-white/80 border-black/5'
@@ -992,13 +992,13 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 md:h-20 flex items-center justify-between">
           <div className="flex items-center gap-3 md:gap-4">
             <div className={`w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center shadow-lg transition-colors ${
-              theme === 'dark' ? 'bg-white text-black' : 'bg-black text-white'
+              theme === 'dark' ? 'bg-white text-black' : 'bg-hec-blue text-white'
             }`}>
               <Zap className="w-5 h-5 md:w-6 md:h-6" />
             </div>
             <div>
               <h1 className="text-lg md:text-xl font-black tracking-tighter uppercase">{me?.companyName || 'Studio Tycoon'}</h1>
-              <p className={`text-[8px] md:text-[10px] font-bold uppercase tracking-widest ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>
+              <p className={`text-[8px] md:text-[10px] font-bold uppercase tracking-widest ${theme === 'dark' ? 'text-gray-500' : 'text-hec-blue/40'}`}>
                 Simulation de Gestion de Studio
               </p>
             </div>
@@ -1069,42 +1069,42 @@ export default function App() {
       <main className="max-w-7xl mx-auto p-4 md:p-8">
         {/* Navigation Tabs */}
         <div className={`flex gap-1 md:gap-2 mb-8 p-1 rounded-2xl w-full md:w-fit overflow-x-auto no-scrollbar transition-colors ${
-          theme === 'dark' ? 'bg-white/5' : 'bg-white/50'
+          theme === 'dark' ? 'bg-white/5' : 'bg-hec-blue/5'
         }`}>
           <button 
             onClick={() => setActiveTab('dashboard')}
-            className={`flex-1 md:flex-none whitespace-nowrap px-4 md:px-8 py-2.5 rounded-xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-2 ${
+            className={`flex-1 md:flex-none whitespace-nowrap px-4 md:px-8 py-3 rounded-xl font-bold text-sm md:text-base transition-all flex items-center justify-center gap-2 ${
               activeTab === 'dashboard' 
-                ? (theme === 'dark' ? 'bg-white text-black shadow-xl' : 'bg-black text-white shadow-xl') 
-                : (theme === 'dark' ? 'text-gray-500 hover:bg-white/5' : 'text-gray-500 hover:bg-white/80')
+                ? (theme === 'dark' ? 'bg-white text-black shadow-xl' : 'bg-hec-blue text-white shadow-xl') 
+                : (theme === 'dark' ? 'text-gray-500 hover:bg-white/5' : 'text-hec-blue/60 hover:bg-white/80')
             }`}
           >
-            <LayoutDashboard className="w-3 h-3 md:w-4 md:h-4" /> <span className="hidden sm:inline">Tableau de bord</span><span className="sm:hidden">Dashboard</span>
+            <LayoutDashboard className="w-4 h-4 md:w-5 md:h-5" /> <span>Tableau de bord</span>
           </button>
           <button 
             onClick={() => setActiveTab('market')}
-            className={`flex-1 md:flex-none whitespace-nowrap px-4 md:px-8 py-2.5 rounded-xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-2 relative ${
+            className={`flex-1 md:flex-none whitespace-nowrap px-4 md:px-8 py-3 rounded-xl font-bold text-sm md:text-base transition-all flex items-center justify-center gap-2 relative ${
               activeTab === 'market' 
-                ? (theme === 'dark' ? 'bg-white text-black shadow-xl' : 'bg-black text-white shadow-xl') 
-                : (theme === 'dark' ? 'text-gray-500 hover:bg-white/5' : 'text-gray-500 hover:bg-white/80')
+                ? (theme === 'dark' ? 'bg-white text-black shadow-xl' : 'bg-hec-blue text-white shadow-xl') 
+                : (theme === 'dark' ? 'text-gray-500 hover:bg-white/5' : 'text-hec-blue/60 hover:bg-white/80')
             }`}
           >
-            <UserPlus className="w-3 h-3 md:w-4 md:h-4" /> <span className="hidden sm:inline">Marché de l'emploi</span><span className="sm:hidden">Marché</span>
+            <UserPlus className="w-4 h-4 md:w-5 md:h-5" /> <span>Marché de l'emploi</span>
             {gameState?.candidates && gameState.candidates.length > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-3 w-3 sm:h-4 sm:w-4 items-center justify-center rounded-full bg-indigo-500 text-[8px] sm:text-[10px] font-bold text-white shadow-sm ring-2 ring-white dark:ring-black">
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-hec-accent text-[10px] font-bold text-white shadow-sm ring-2 ring-white dark:ring-black">
                 {gameState.candidates.length}
               </span>
             )}
           </button>
           <button 
             onClick={() => setActiveTab('competition')}
-            className={`flex-1 md:flex-none whitespace-nowrap px-4 md:px-8 py-2.5 rounded-xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-2 ${
+            className={`flex-1 md:flex-none whitespace-nowrap px-4 md:px-8 py-3 rounded-xl font-bold text-sm md:text-base transition-all flex items-center justify-center gap-2 ${
               activeTab === 'competition' 
-                ? (theme === 'dark' ? 'bg-white text-black shadow-xl' : 'bg-black text-white shadow-xl') 
-                : (theme === 'dark' ? 'text-gray-500 hover:bg-white/5' : 'text-gray-500 hover:bg-white/80')
+                ? (theme === 'dark' ? 'bg-white text-black shadow-xl' : 'bg-hec-blue text-white shadow-xl') 
+                : (theme === 'dark' ? 'text-gray-500 hover:bg-white/5' : 'text-hec-blue/60 hover:bg-white/80')
             }`}
           >
-            <Trophy className="w-3 h-3 md:w-4 md:h-4" /> <span className="hidden sm:inline">Compétition</span><span className="sm:hidden">Classement</span>
+            <Trophy className="w-4 h-4 md:w-5 md:h-5" /> <span>Compétition</span>
           </button>
         </div>
 
@@ -1248,7 +1248,7 @@ export default function App() {
                             style={{ height: '100%' }}
                           >
                             <div 
-                              className={`absolute bottom-0 left-0 right-0 rounded-t-lg transition-all duration-500 ${theme === 'dark' ? 'bg-indigo-500' : 'bg-black'}`}
+                              className={`absolute bottom-0 left-0 right-0 rounded-t-lg transition-all duration-500 ${theme === 'dark' ? 'bg-hec-accent' : 'bg-hec-blue'}`}
                               style={{ height: `${Math.min(100, (weekTotal / 500) * 100)}%` }}
                             />
                             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-black text-white text-[8px] px-2 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 shadow-xl">
@@ -1322,7 +1322,7 @@ export default function App() {
                                 </span>
                               </p>
                               <div className="mt-2 flex items-center gap-3">
-                                <div className="px-2 py-0.5 bg-indigo-600 text-white rounded-md flex items-center gap-1.5 shadow-sm">
+                                <div className="px-2 py-0.5 bg-hec-blue text-white rounded-md flex items-center gap-1.5 shadow-sm">
                                   <TrendingUp className="w-3 h-3" />
                                   <span className="text-[10px] font-black uppercase tracking-wider">
                                     {emp.productivityHistory?.length ? emp.productivityHistory[emp.productivityHistory.length - 1].toFixed(0) : 0} PTS/SEM
@@ -1351,7 +1351,7 @@ export default function App() {
                             <div className="flex items-center gap-2">
                               <button 
                                 onClick={() => setActiveChatEmployeeId(emp.id)}
-                                className={`p-2 transition-colors ${theme === 'dark' ? 'text-gray-500 hover:text-white' : 'text-gray-300 hover:text-indigo-600'}`}
+                                className={`p-2 transition-colors ${theme === 'dark' ? 'text-gray-500 hover:text-white' : 'text-gray-300 hover:text-hec-blue'}`}
                                 title="Discuter"
                               >
                                 <MessageSquare className="w-5 h-5" />
@@ -1484,11 +1484,11 @@ export default function App() {
                           }}
                           className={`flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2 rounded-full border cursor-pointer transition-all ${
                             canApply 
-                              ? (theme === 'dark' ? 'bg-indigo-500/20 border-indigo-500/50 hover:bg-indigo-500/30' : 'bg-indigo-50 border-indigo-200 hover:bg-indigo-100 shadow-md')
+                              ? (theme === 'dark' ? 'bg-hec-accent/20 border-hec-accent/50 hover:bg-hec-accent/30' : 'bg-hec-blue/10 border-hec-blue/20 hover:bg-hec-blue/20 shadow-md')
                               : (theme === 'dark' ? 'bg-white/5 border-white/10 hover:bg-white/10' : 'bg-white border-black/10 hover:bg-gray-50 shadow-sm')
                           }`}
                         >
-                          <Briefcase className={`transition-all ${canApply ? 'w-5 h-5 sm:w-6 sm:h-6 text-indigo-600 animate-pulse' : 'w-4 h-4 text-indigo-400'}`} />
+                          <Briefcase className={`transition-all ${canApply ? 'w-5 h-5 sm:w-6 sm:h-6 text-hec-blue animate-pulse' : 'w-4 h-4 text-hec-accent'}`} />
                           <span className={`font-bold text-xs sm:text-sm truncate max-w-[120px] sm:max-w-[200px] ${canApply ? 'text-indigo-900 dark:text-indigo-200' : ''}`}>{contract.title}</span>
                           <span className="text-emerald-600 font-bold text-[10px] sm:text-xs">+{contract.monthlyRevenue.toLocaleString()}$</span>
                         </div>
@@ -1540,7 +1540,7 @@ export default function App() {
                           <button 
                             onClick={(e) => { e.stopPropagation(); applyForContract(contract.id); setExpandedContractId(null); }}
                             disabled={!canApply}
-                            className="w-full py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full py-2 rounded-xl bg-hec-blue text-white text-xs font-bold hover:bg-hec-accent transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {me?.isUnderTutelage 
                               ? 'Sous Tutelle' 
@@ -1566,7 +1566,7 @@ export default function App() {
                   <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
                     <div className="space-y-2">
                       <div className="flex items-center gap-3">
-                        <div className={`p-3 rounded-2xl ${theme === 'dark' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-indigo-50 text-indigo-600'}`}>
+                        <div className={`p-3 rounded-2xl ${theme === 'dark' ? 'bg-hec-accent/20 text-hec-accent' : 'bg-hec-blue/10 text-hec-blue'}`}>
                           <UserPlus className="w-6 h-6" />
                         </div>
                         <h2 className="text-2xl md:text-3xl font-black tracking-tighter uppercase">
@@ -1610,7 +1610,7 @@ export default function App() {
                               ? 'bg-emerald-500 text-white'
                               : me && me.targetedRecruitCount >= 2 
                                 ? 'bg-amber-400 hover:bg-amber-500 text-amber-950' 
-                                : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                                : 'bg-hec-blue hover:bg-hec-accent text-white'
                           }`}
                         >
                           {isRecruiting ? (
@@ -1664,7 +1664,7 @@ export default function App() {
                         theme === 'dark' 
                           ? 'bg-white/5 border-white/10 hover:border-white/20' 
                           : 'bg-white border-black/5 shadow-sm hover:shadow-md'
-                      } ${candidate.isInternational ? 'ring-2 ring-indigo-500/20' : ''}`}
+                      } ${candidate.isInternational ? 'ring-2 ring-hec-accent/20' : ''}`}
                     >
                       {candidate.isTargeted && (
                         <div className="bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest text-center py-1 -mx-6 -mt-6 mb-6 rounded-t-[32px]">
@@ -1681,7 +1681,7 @@ export default function App() {
                               referrerPolicy="no-referrer"
                             />
                             {candidate.isInternational && (
-                              <div className="absolute -top-2 -right-2 bg-indigo-600 text-white p-1 rounded-lg shadow-lg">
+                              <div className="absolute -top-2 -right-2 bg-hec-blue text-white p-1 rounded-lg shadow-lg">
                                 <span className="text-[10px] font-bold">INTL</span>
                               </div>
                             )}
@@ -1691,14 +1691,14 @@ export default function App() {
                             <p className={`font-mono font-black text-xl ${theme === 'dark' ? 'text-white' : 'text-black'}`}>
                               {candidate.minSalary.toLocaleString('fr-CA')} $
                             </p>
-                            {candidate.isInternational && <span className="text-[10px] text-indigo-500 font-bold block">Coût X2</span>}
+                            {candidate.isInternational && <span className="text-[10px] text-hec-accent font-bold block">Coût X2</span>}
                           </div>
                         </div>
                         <h4 className="text-lg font-black mb-1">{candidate.name}</h4>
                         <p className={`text-sm mb-4 font-bold ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>{candidate.role}</p>
                         <div className="flex flex-wrap items-center gap-2 mb-4">
                           <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider border ${
-                            candidate.seniority === 'Sénior' ? (theme === 'dark' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-indigo-50 text-indigo-700 border-indigo-100') : 
+                            candidate.seniority === 'Sénior' ? (theme === 'dark' ? 'bg-hec-accent/10 text-hec-accent border-hec-accent/20' : 'bg-hec-blue/10 text-hec-blue border-hec-blue/10') : 
                             candidate.seniority === 'Intermédiaire' ? (theme === 'dark' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-blue-50 text-blue-700 border-blue-100') :
                             candidate.seniority === 'Stagiaire' ? (theme === 'dark' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-amber-50 text-amber-700 border-amber-100') :
                             (theme === 'dark' ? 'bg-gray-500/10 text-gray-400 border-white/10' : 'bg-gray-100 text-gray-600 border-gray-200')
@@ -1706,7 +1706,7 @@ export default function App() {
                             {candidate.seniority}
                           </span>
                           <div className={`px-3 py-1 rounded-full flex items-center gap-1 border transition-colors ${
-                            theme === 'dark' ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400' : 'bg-indigo-50 border-indigo-100 text-indigo-700'
+                            theme === 'dark' ? 'bg-hec-accent/10 border-hec-accent/20 text-hec-accent' : 'bg-hec-blue/10 border-hec-blue/10 text-hec-blue'
                           }`}>
                             <TrendingUp className="w-3 h-3" />
                             <span className="text-[10px] font-black uppercase tracking-wider">
@@ -1971,7 +1971,7 @@ export default function App() {
             >
               <div className={`p-6 border-b flex items-center justify-between ${theme === 'dark' ? 'border-white/10' : 'border-black/5'}`}>
                 <div className="flex items-center gap-3">
-                  <Mail className="w-6 h-6 text-indigo-500" />
+                  <Mail className="w-6 h-6 text-hec-accent" />
                   <h2 className="text-xl font-black uppercase tracking-tight">Boîte de réception</h2>
                 </div>
                 <button 
@@ -1993,7 +1993,7 @@ export default function App() {
                       key={msg.id} 
                       className={`p-4 rounded-2xl border transition-all ${
                         !msg.read 
-                          ? (theme === 'dark' ? 'bg-indigo-500/10 border-indigo-500/30' : 'bg-indigo-50 border-indigo-200') 
+                          ? (theme === 'dark' ? 'bg-hec-accent/10 border-hec-accent/30' : 'bg-hec-blue/10 border-hec-blue/20') 
                           : (theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-gray-50 border-black/5')
                       }`}
                       onClick={() => {
@@ -2007,7 +2007,7 @@ export default function App() {
                           <h3 className="font-bold text-sm">{msg.subject}</h3>
                           <p className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>De: {msg.from} • Semaine {msg.week}</p>
                         </div>
-                        {!msg.read && <span className="w-2 h-2 rounded-full bg-indigo-500"></span>}
+                        {!msg.read && <span className="w-2 h-2 rounded-full bg-hec-accent"></span>}
                       </div>
                       <p className="text-sm mt-2 whitespace-pre-wrap">{msg.text}</p>
                     </div>
@@ -2194,7 +2194,7 @@ export default function App() {
                       <div className={`p-3 md:p-4 rounded-2xl md:rounded-3xl rounded-tl-none flex items-center gap-3 border transition-colors ${
                         theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-white border-black/5 shadow-sm'
                       }`}>
-                        <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
+                        <Loader2 className="w-4 h-4 animate-spin text-hec-accent" />
                         <span className={`text-[10px] md:text-xs italic ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>En train de réfléchir...</span>
                       </div>
                     </div>
@@ -2290,7 +2290,7 @@ export default function App() {
                             )}
                             className={`p-3 md:p-4 rounded-xl md:rounded-2xl border text-left transition-all relative overflow-hidden ${
                               isSelected 
-                                ? (theme === 'dark' ? 'bg-indigo-500/20 border-indigo-500 text-white' : 'bg-indigo-50 border-indigo-600 text-indigo-900') 
+                                ? (theme === 'dark' ? 'bg-hec-accent/20 border-hec-accent text-white' : 'bg-hec-blue/10 border-hec-blue text-hec-blue') 
                                 : (isPremium 
                                     ? (theme === 'dark' ? 'border-amber-500/50 bg-amber-500/10 hover:border-amber-500' : 'border-amber-400 bg-amber-50 hover:border-amber-500')
                                     : (theme === 'dark' ? 'bg-white/5 border-white/10 text-gray-500 hover:border-white/20' : 'bg-white border-gray-100 text-gray-400 hover:border-gray-300'))
@@ -2371,7 +2371,7 @@ export default function App() {
                     <div className={`p-4 rounded-3xl rounded-tl-none border transition-colors ${
                       theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-white border-black/5 shadow-sm'
                     }`}>
-                      <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
+                      <Loader2 className="w-4 h-4 animate-spin text-hec-accent" />
                     </div>
                   </div>
                 )}
@@ -2397,7 +2397,7 @@ export default function App() {
                         }}
                         className={`text-[10px] px-3 py-1.5 rounded-full font-bold transition-colors border relative overflow-hidden ${
                           isSelected
-                            ? 'bg-indigo-600 text-white border-indigo-600'
+                            ? 'bg-hec-blue text-white border-hec-blue'
                             : (isPremium 
                                 ? (theme === 'dark' ? 'bg-amber-500/10 text-amber-400 border-amber-500/50 hover:border-amber-500' : 'bg-amber-50 text-amber-600 border-amber-400 hover:border-amber-500')
                                 : (theme === 'dark' ? 'bg-black/40 text-gray-400 border-white/10 hover:border-white/30' : 'bg-white text-gray-600 border-black/10 hover:border-black/30'))
@@ -2425,7 +2425,7 @@ export default function App() {
                       }
                     }}
                     disabled={selectedPersonalBenefits.length === 0}
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600 text-white text-sm font-bold rounded-lg transition-colors"
+                    className="px-4 py-2 bg-hec-blue hover:bg-hec-accent disabled:opacity-50 disabled:hover:bg-hec-blue text-white text-sm font-bold rounded-lg transition-colors"
                   >
                     Offrir les avantages sélectionnés
                   </button>

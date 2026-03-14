@@ -1,1 +1,11 @@
 @import "tailwindcss";
+
+@theme {
+  --color-hec-blue: #003366;
+  --color-hec-light: #eef6fc;
+  --color-hec-accent: #004a99;
+}
+
+body {
+  background-color: var(--color-hec-light);
+}
