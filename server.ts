@@ -30,6 +30,8 @@ const BENEFITS: Benefit[] = [
   { id: "flexible", name: "Horaires Flexibles", costPerEmployee: 50, attractiveness: 10 },
   { id: "gym", name: "Abonnement Sport", costPerEmployee: 40, attractiveness: 5 },
   { id: "bonus", name: "Bonus Annuel", costPerEmployee: 500, attractiveness: 25 },
+  { id: "pension", name: "Cotisation Fond de Pension", costPerEmployee: 1200, attractiveness: 40 },
+  { id: "dental", name: "Soins Dentaires Complets", costPerEmployee: 800, attractiveness: 30 },
 ];
 
 interface Contract {
@@ -71,6 +73,8 @@ interface Employee {
   leaveWeeksRemaining: number;
   hiredAtWeek?: number;
   isTargeted?: boolean;
+  isLookingForJob?: boolean;
+  personalBenefits?: string[];
 }
 
 interface InboxMessage {
@@ -280,14 +284,20 @@ async function startServer() {
         
         // Check for new resignations
         // Poor conditions: only money (0 or 1 benefit) or under tutelage
-        const hasPoorConditions = player.benefits.length <= 1;
+        const totalBenefits = player.benefits.length + (emp.personalBenefits?.length || 0);
+        const hasPoorConditions = totalBenefits <= 1;
         const isAtRisk = player.isUnderTutelage || hasPoorConditions;
         
         if (isAtRisk && emp.resignationNotice === null) {
           // Chance to resign: 15% if poor conditions, 30% if under tutelage
-          const resignationChance = player.isUnderTutelage ? 0.3 : 0.15;
-          if (Math.random() < resignationChance) {
+          const ghostChance = player.isUnderTutelage ? 0.3 : 0.15;
+          const resignChance = player.isUnderTutelage ? 0.4 : 0.2;
+          
+          if (!emp.isLookingForJob && Math.random() < ghostChance) {
+            emp.isLookingForJob = true;
+          } else if (emp.isLookingForJob && Math.random() < resignChance) {
             emp.resignationNotice = 1; // 1 week notice
+            emp.isLookingForJob = false;
             player.inbox.push({
               id: Math.random().toString(36).substr(2, 9),
               from: emp.name,
@@ -296,6 +306,11 @@ async function startServer() {
               read: false,
               week: currentWeek
             });
+          }
+        } else if (!isAtRisk) {
+          emp.isLookingForJob = false;
+          if (emp.resignationNotice !== null) {
+            emp.resignationNotice = null; // Cancel resignation if conditions improve
           }
         }
 
@@ -363,7 +378,8 @@ async function startServer() {
       player.employees.forEach(emp => {
         const multiplier = emp.isInternational ? 2 : 1;
         let empMonthlyCost = emp.minSalary;
-        player.benefits.forEach(bId => {
+        const uniqueBenefits = new Set([...player.benefits, ...(emp.personalBenefits || [])]);
+        uniqueBenefits.forEach(bId => {
           const benefit = BENEFITS.find(b => b.id === bId);
           if (benefit) empMonthlyCost += benefit.costPerEmployee;
         });
@@ -537,6 +553,50 @@ async function startServer() {
           broadcastState();
           break;
 
+        case "OFFER_PERSONAL_BENEFITS":
+          if (playerId && players.has(playerId)) {
+            const player = players.get(playerId)!;
+            const emp = player.employees.find(e => e.id === message.employeeId);
+            if (emp && message.benefitIds && Array.isArray(message.benefitIds)) {
+              if (!emp.personalBenefits) emp.personalBenefits = [];
+              let totalCost = 0;
+              const addedNames: string[] = [];
+              
+              message.benefitIds.forEach((bId: string) => {
+                if (!emp.personalBenefits!.includes(bId)) {
+                  emp.personalBenefits!.push(bId);
+                  const benefit = BENEFITS.find(b => b.id === bId);
+                  if (benefit) {
+                    totalCost += benefit.costPerEmployee;
+                    addedNames.push(benefit.name);
+                  }
+                }
+              });
+              
+              if (addedNames.length > 0) {
+                player.money -= totalCost; // Deduct from treasury immediately
+                
+                if (!emp.chatHistory) emp.chatHistory = [];
+                emp.chatHistory.push({
+                  sender: 'player',
+                  text: `Je vous offre de nouveaux avantages personnels : ${addedNames.join(', ')}. J'espère que cela vous plaira !`,
+                  timestamp: Date.now()
+                });
+                
+                emp.isLookingForJob = false;
+                emp.resignationNotice = null;
+                
+                emp.chatHistory.push({
+                  sender: 'employee',
+                  text: `Merci beaucoup ! C'est très apprécié. Je suis ravi de rester dans l'équipe.`,
+                  timestamp: Date.now() + 1000
+                });
+                broadcastState();
+              }
+            }
+          }
+          break;
+
         case "SEND_CHAT":
           if (playerId && players.has(playerId)) {
             const player = players.get(playerId)!;
@@ -562,7 +622,16 @@ async function startServer() {
 
         case "SEND_CANDIDATE_CHAT":
           if (playerId && players.has(playerId)) {
-            const candidate = candidates.find(c => c.id === message.candidateId);
+            let candidate = candidates.find(c => c.id === message.candidateId);
+            if (!candidate) {
+              for (const p of players.values()) {
+                const ghost = p.employees.find(e => e.id === message.candidateId && e.isLookingForJob);
+                if (ghost) {
+                  candidate = ghost;
+                  break;
+                }
+              }
+            }
             if (candidate) {
               if (!candidate.chatHistory) candidate.chatHistory = [];
               candidate.chatHistory.push({
@@ -699,6 +768,41 @@ async function startServer() {
                 player.totalHired++;
                 candidates.splice(candidateIndex, 1);
                 broadcastState();
+              } else {
+                // Look for ghost employee
+                let ghostEmp: Employee | null = null;
+                let ghostEmployer: any = null;
+                for (const p of players.values()) {
+                  if (p.id !== playerId) {
+                    const idx = p.employees.findIndex(e => e.id === candidateId && e.isLookingForJob);
+                    if (idx !== -1) {
+                      ghostEmp = p.employees[idx];
+                      ghostEmployer = p;
+                      break;
+                    }
+                  }
+                }
+                if (ghostEmp && ghostEmployer) {
+                  ghostEmp.currentEmployerId = playerId;
+                  ghostEmp.minSalary = finalSalary;
+                  ghostEmp.hiredAtWeek = currentWeek;
+                  ghostEmp.isLookingForJob = false;
+                  ghostEmp.resignationNotice = null;
+                  ghostEmp.personalBenefits = [];
+                  player.employees.unshift(ghostEmp);
+                  player.totalHired++;
+                  
+                  ghostEmployer.employees = ghostEmployer.employees.filter((e: Employee) => e.id !== ghostEmp!.id);
+                  ghostEmployer.inbox.push({
+                    id: Math.random().toString(36).substr(2, 9),
+                    from: "Ressources Humaines",
+                    subject: "Départ inattendu",
+                    text: `${ghostEmp.name} a été débauché(e) par une autre entreprise offrant de meilleures conditions !`,
+                    read: false,
+                    week: currentWeek
+                  });
+                  broadcastState();
+                }
               }
             }
           }

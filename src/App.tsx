@@ -26,7 +26,10 @@ import {
   Mail,
   X,
   Clock,
-  CheckCircle
+  CheckCircle,
+  Ghost,
+  Copy,
+  Link
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
@@ -142,6 +145,8 @@ interface Employee {
   leaveWeeksRemaining: number;
   hiredAtWeek?: number;
   isTargeted?: boolean;
+  isLookingForJob?: boolean;
+  personalBenefits?: string[];
 }
 
 interface InboxMessage {
@@ -187,7 +192,20 @@ export default function App() {
   const [playerId, setPlayerId] = useState<string | null>(localStorage.getItem('it_tycoon_player_id'));
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [companyName, setCompanyName] = useState(localStorage.getItem('it_tycoon_company_name') || '');
+  const [inviteEmail, setInviteEmail] = useState('');
   const [isJoined, setIsJoined] = useState(false);
+
+  const GAME_URL = "https://it-tycoon-game.onrender.com";
+
+  const invitePlayer = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (inviteEmail.trim()) {
+      const subject = encodeURIComponent("Rejoins-moi sur Tech Talent War !");
+      const body = encodeURIComponent(`Salut !\n\nJe t'invite à jouer à Tech Talent War avec moi. Rejoins la partie ici : ${GAME_URL}\n\nÀ tout de suite !`);
+      window.location.href = `mailto:${inviteEmail.trim()}?subject=${subject}&body=${body}`;
+      setInviteEmail('');
+    }
+  };
   const [activeTab, setActiveTab] = useState<'dashboard' | 'market' | 'competition'>('dashboard');
   const [expandedContractId, setExpandedContractId] = useState<string | null>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -266,8 +284,13 @@ export default function App() {
   }, []);
 
   const [activeChatEmployeeId, setActiveChatEmployeeId] = useState<string | null>(null);
+  const [selectedPersonalBenefits, setSelectedPersonalBenefits] = useState<string[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+
+  useEffect(() => {
+    setSelectedPersonalBenefits([]);
+  }, [activeChatEmployeeId]);
 
   useEffect(() => {
     const me = gameState?.players.find(([id]) => id === playerId)?.[1];
@@ -823,15 +846,7 @@ export default function App() {
           className="bg-white p-8 rounded-3xl shadow-2xl max-w-2xl w-full border border-black/5 flex flex-col md:flex-row gap-8"
         >
           <div className="flex-1 space-y-6">
-            <div className="flex justify-center md:justify-start">
-              <img 
-                src="https://www.hec.ca/logos/HEC_Montreal_Logo_Bleu_RVB.png" 
-                alt="HEC Montréal" 
-                className="h-16 object-contain"
-                referrerPolicy="no-referrer"
-              />
-            </div>
-            <h1 className="text-4xl font-black tracking-tighter text-black">IT TYCOON</h1>
+            <h1 className="text-4xl font-black tracking-tighter text-black">TECH TALENT WAR</h1>
             <p className="text-gray-500 italic">Simulateur d'attractivité et de gestion RH</p>
             
             <div className="space-y-4 pt-4">
@@ -882,6 +897,68 @@ export default function App() {
             <p className="text-[10px] text-center text-gray-400 leading-relaxed">
               En démarrant, vous acceptez de relever le défi de la gestion de talents dans un marché compétitif.
             </p>
+
+            <div className="pt-6 border-t border-black/5 mt-6">
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Inviter un joueur</label>
+              
+              <div className="flex flex-col gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`Rejoins ma partie sur Tech Talent War : ${GAME_URL}`);
+                    alert('Lien copié ! Vous pouvez le coller dans votre courriel.');
+                  }}
+                  className="w-full bg-indigo-50 text-indigo-600 border border-indigo-100 px-4 py-3 rounded-xl font-bold hover:bg-indigo-100 transition-all text-sm flex items-center justify-center gap-2"
+                >
+                  <Copy className="w-4 h-4" /> Copier le lien d'invitation
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <div className="h-px bg-gray-200 flex-1"></div>
+                  <span className="text-[10px] text-gray-400 font-bold uppercase">OU ENVOYER VIA</span>
+                  <div className="h-px bg-gray-200 flex-1"></div>
+                </div>
+
+                <form onSubmit={invitePlayer} className="flex flex-col gap-2">
+                  <input 
+                    type="email" 
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="courriel@exemple.com"
+                    className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-black transition-all text-sm"
+                  />
+                  <div className="flex gap-2">
+                    <button 
+                      type="submit"
+                      disabled={!inviteEmail.trim()}
+                      title="Ouvre votre application de courriel par défaut"
+                      className="flex-1 bg-gray-100 text-black px-4 py-2 rounded-xl font-bold hover:bg-gray-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-xs whitespace-nowrap flex items-center justify-center gap-2"
+                    >
+                      <Mail className="w-4 h-4" /> App par défaut
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        if (inviteEmail.trim()) {
+                          const subject = encodeURIComponent("Rejoins-moi sur Tech Talent War !");
+                          const body = encodeURIComponent(`Salut !\n\nJe t'invite à jouer à Tech Talent War avec moi. Rejoins la partie ici : ${GAME_URL}\n\nÀ tout de suite !`);
+                          window.open(`https://outlook.office.com/mail/deeplink/compose?to=${inviteEmail.trim()}&subject=${subject}&body=${body}`, '_blank');
+                          setInviteEmail('');
+                        }
+                      }}
+                      disabled={!inviteEmail.trim()}
+                      title="Ouvrir dans Outlook Web (Office 365)"
+                      className="flex-1 bg-[#0078D4] text-white px-4 py-2 rounded-xl font-bold hover:bg-[#006cbd] transition-all disabled:opacity-50 disabled:cursor-not-allowed text-xs whitespace-nowrap flex items-center justify-center gap-2"
+                    >
+                      Outlook Web
+                    </button>
+                  </div>
+                </form>
+                <p className="text-[10px] text-gray-400 text-center mt-1 leading-tight">
+                  Si "App par défaut" ouvre Edge, c'est que Windows est configuré pour utiliser Edge. Utilisez "Copier le lien" pour coller dans votre Outlook de bureau.
+                </p>
+              </div>
+            </div>
           </div>
         </motion.div>
       </div>
@@ -969,15 +1046,17 @@ export default function App() {
             </div>
             <button 
               onClick={advanceWeek}
+              style={{
+                backgroundColor: isWeekChanging ? '#10b981' : `hsl(${((gameState?.currentWeek || 0) * 137.5) % 360}, 70%, 50%)`,
+                color: 'white'
+              }}
               className={`flex px-4 py-2 md:px-5 md:py-2.5 rounded-xl text-xs md:text-sm font-black transition-all duration-300 items-center gap-2 shadow-lg whitespace-nowrap ${
-                isWeekChanging 
-                  ? 'bg-emerald-500 text-white scale-105' 
-                  : theme === 'dark' ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'
+                isWeekChanging ? 'scale-105' : 'hover:opacity-90'
               }`}
             >
               <Clock className={`w-4 h-4 md:w-5 md:h-5 ${isWeekChanging ? 'animate-spin' : 'animate-pulse'}`} />
-              <span className="hidden sm:inline">Semaine Suivante</span>
-              <span className="sm:hidden">Suivant</span>
+              <span className="hidden sm:inline">Semaine Suivante (Semaine {gameState?.currentWeek || 1})</span>
+              <span className="sm:hidden">S. {gameState?.currentWeek || 1}</span>
             </button>
           </div>
         </div>
@@ -1256,9 +1335,6 @@ export default function App() {
                                   ))}
                                 </div>
                               </div>
-                              <p className="text-[10px] text-rose-500 font-bold uppercase mt-1">
-                                Taux d'absentéisme: 12%
-                              </p>
                             </div>
                           </div>
                           <div className="flex items-center gap-8">
@@ -1301,25 +1377,31 @@ export default function App() {
                   <div className="space-y-3">
                     {gameState?.benefits.map(benefit => {
                       const isActive = me?.benefits.includes(benefit.id);
+                      const isPremium = benefit.id === 'pension' || benefit.id === 'dental';
                       return (
                         <button 
                           key={benefit.id}
                           onClick={() => toggleBenefit(benefit.id)}
-                          className={`w-full p-4 rounded-2xl border transition-all text-left flex items-center justify-between group ${
+                          className={`w-full p-4 rounded-2xl border transition-all text-left flex items-center justify-between group relative overflow-hidden ${
                             isActive 
                               ? (theme === 'dark' ? 'border-white bg-white text-black' : 'border-black bg-black text-white')
-                              : (theme === 'dark' ? 'border-white/10 bg-white/5 hover:border-white/30' : 'border-gray-100 bg-gray-50 hover:border-gray-300')
+                              : (isPremium 
+                                  ? (theme === 'dark' ? 'border-amber-500/50 bg-amber-500/10 hover:border-amber-500' : 'border-amber-400 bg-amber-50 hover:border-amber-500')
+                                  : (theme === 'dark' ? 'border-white/10 bg-white/5 hover:border-white/30' : 'border-gray-100 bg-gray-50 hover:border-gray-300'))
                           }`}
                         >
+                          {isPremium && !isActive && (
+                            <div className="absolute top-0 right-0 bg-amber-500 text-white text-[8px] font-black px-2 py-0.5 rounded-bl-lg">PREMIUM</div>
+                          )}
                           <div>
-                            <p className="font-bold text-sm">{benefit.name}</p>
+                            <p className={`font-bold text-sm ${isPremium && !isActive ? 'text-amber-600 dark:text-amber-400' : ''}`}>{benefit.name}</p>
                             <p className={`text-[10px] uppercase tracking-widest ${isActive ? (theme === 'dark' ? 'text-gray-600' : 'text-gray-400') : 'text-gray-500'}`}>
                               +{benefit.attractiveness} Attractivité
                             </p>
                           </div>
                           <div className="text-right">
                             <p className={`text-[10px] font-bold ${isActive ? (theme === 'dark' ? 'text-gray-600' : 'text-gray-400') : 'text-gray-500'}`}>Coût/Emp</p>
-                            <p className="font-mono text-xs">{benefit.costPerEmployee} $</p>
+                            <p className={`font-mono text-xs ${isPremium && !isActive ? 'text-amber-600 dark:text-amber-400 font-bold' : ''}`}>{benefit.costPerEmployee} $</p>
                           </div>
                         </button>
                       );
@@ -1663,6 +1745,101 @@ export default function App() {
                     </motion.div>
                   ))}
                 </div>
+
+                {(() => {
+                  const ghosts = gameState?.players.flatMap(([id, p]) => 
+                    p.employees.filter(e => e.isLookingForJob).map(e => ({ ...e, companyName: p.companyName, companyId: id }))
+                  ) || [];
+                  return (
+                    <div className="mt-12">
+                      <div className="flex items-center justify-between mb-6">
+                        <h3 className="text-xl font-black flex items-center gap-2 text-purple-500">
+                          <Ghost className="w-6 h-6" /> Talents à l'écoute du marché (Mode GHOST)
+                        </h3>
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${theme === 'dark' ? 'bg-purple-500/20 text-purple-400' : 'bg-purple-100 text-purple-700'}`}>
+                          {ghosts.length} Employés insatisfaits
+                        </span>
+                      </div>
+                      {ghosts.length === 0 ? (
+                        <div className={`p-8 rounded-[32px] border text-center ${theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-gray-50 border-black/5'}`}>
+                          <p className={`text-sm font-bold ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Aucun talent n'est actuellement à l'écoute du marché.</p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                          {ghosts.map(ghost => {
+                            const isOwned = ghost.companyId === playerId;
+                            const lastMsgWithCompany = ghost.chatHistory ? [...ghost.chatHistory].reverse().find(msg => msg.companyName) : null;
+                            const isNegotiatedByOther = lastMsgWithCompany && lastMsgWithCompany.companyName !== ghost.companyName;
+
+                            return (
+                              <motion.div 
+                                layout
+                                key={ghost.id}
+                                className={`p-6 rounded-[32px] border transition-all flex flex-col justify-between group relative overflow-hidden ${
+                                  theme === 'dark' 
+                                    ? 'bg-purple-900/10 border-purple-500/20 hover:border-purple-500/40' 
+                                    : 'bg-purple-50 border-purple-200 shadow-sm hover:shadow-md'
+                                }`}
+                              >
+                                {isOwned && (
+                                  <div className={`absolute inset-0 backdrop-blur-md z-10 pointer-events-none ${theme === 'dark' ? 'bg-black/40' : 'bg-white/60'}`}></div>
+                                )}
+                                <div className="bg-purple-500 text-white text-[10px] font-black uppercase tracking-widest text-center py-1 -mx-6 -mt-6 mb-6 rounded-t-[32px] relative z-20">
+                                  Mode Ghost
+                                  <div className={`absolute right-2 top-1/2 -translate-y-1/2 px-2 py-0.5 rounded-full text-[9px] ${isOwned ? 'bg-white/10 backdrop-blur-md text-white/70' : 'bg-white/20'}`}>
+                                    {ghost.companyName}
+                                  </div>
+                                </div>
+                                <div className="relative z-0">
+                                  <div className="flex items-center justify-between mb-6">
+                                    <div className="relative">
+                                      <img 
+                                        src={ghost.avatarUrl} 
+                                        alt={ghost.name} 
+                                        className={`w-16 h-16 rounded-2xl object-cover border-2 shadow-lg transition-transform group-hover:scale-105 ${theme === 'dark' ? 'border-purple-500/30' : 'border-purple-200'} ${isOwned ? 'blur-sm opacity-60' : ''}`}
+                                        referrerPolicy="no-referrer"
+                                      />
+                                      {isNegotiatedByOther && (
+                                        <div className="absolute -bottom-2 -right-2 bg-amber-500 text-white text-[8px] font-black px-2 py-1 rounded-full shadow-lg animate-pulse whitespace-nowrap z-20">
+                                          Négociation en cours
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="text-right">
+                                      <p className={`text-[10px] font-bold uppercase tracking-widest ${theme === 'dark' ? 'text-purple-400' : 'text-purple-600'}`}>Attente Salariale</p>
+                                      <p className={`font-mono font-black text-xl ${theme === 'dark' ? 'text-white' : 'text-black'}`}>
+                                        {ghost.minSalary.toLocaleString('fr-CA')} $
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <h4 className="text-lg font-black mb-1">{ghost.name}</h4>
+                                  <p className={`text-sm mb-4 font-bold ${theme === 'dark' ? 'text-purple-400' : 'text-purple-600'}`}>{ghost.role}</p>
+                                  <div className="flex flex-wrap items-center gap-2 mb-4">
+                                    <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider border ${
+                                      theme === 'dark' ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' : 'bg-purple-100 text-purple-700 border-purple-200'
+                                    }`}>
+                                      {ghost.seniority}
+                                    </span>
+                                  </div>
+                                  <div className={`p-3 rounded-xl text-xs font-medium italic mb-6 ${theme === 'dark' ? 'bg-black/40 text-gray-400' : 'bg-white/60 text-gray-600'}`}>
+                                    "Je cherche une entreprise qui offre de meilleures conditions et avantages sociaux."
+                                  </div>
+                                </div>
+                                <button 
+                                  onClick={() => startNegotiation(ghost)}
+                                  disabled={me?.isUnderTutelage || ghost.companyId === playerId}
+                                  className="w-full py-4 rounded-2xl font-black text-sm transition-all flex items-center justify-center gap-3 shadow-lg shadow-purple-500/20 bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50 relative z-20"
+                                >
+                                  {ghost.companyId === playerId ? "C'est votre employé" : "Négocier l'offre"} <MessageSquare className="w-5 h-5" />
+                                </button>
+                              </motion.div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             </motion.div>
           )}
@@ -2100,20 +2277,26 @@ export default function App() {
                     <div className="grid grid-cols-1 gap-2">
                       {gameState?.benefits.map(benefit => {
                         const isSelected = offeredBenefits.includes(benefit.id);
+                        const isPremium = benefit.id === 'pension' || benefit.id === 'dental';
                         return (
                           <button
                             key={benefit.id}
                             onClick={() => setOfferedBenefits(prev => 
                               prev.includes(benefit.id) ? prev.filter(id => id !== benefit.id) : [...prev, benefit.id]
                             )}
-                            className={`p-3 md:p-4 rounded-xl md:rounded-2xl border text-left transition-all ${
+                            className={`p-3 md:p-4 rounded-xl md:rounded-2xl border text-left transition-all relative overflow-hidden ${
                               isSelected 
                                 ? (theme === 'dark' ? 'bg-indigo-500/20 border-indigo-500 text-white' : 'bg-indigo-50 border-indigo-600 text-indigo-900') 
-                                : (theme === 'dark' ? 'bg-white/5 border-white/10 text-gray-500 hover:border-white/20' : 'bg-white border-gray-100 text-gray-400 hover:border-gray-300')
+                                : (isPremium 
+                                    ? (theme === 'dark' ? 'border-amber-500/50 bg-amber-500/10 hover:border-amber-500' : 'border-amber-400 bg-amber-50 hover:border-amber-500')
+                                    : (theme === 'dark' ? 'bg-white/5 border-white/10 text-gray-500 hover:border-white/20' : 'bg-white border-gray-100 text-gray-400 hover:border-gray-300'))
                             }`}
                           >
+                            {isPremium && !isSelected && (
+                              <div className="absolute top-0 right-0 bg-amber-500 text-white text-[8px] font-black px-2 py-0.5 rounded-bl-lg">PREMIUM</div>
+                            )}
                             <div className="flex justify-between items-center">
-                              <span className="text-[10px] md:text-xs font-bold">{benefit.name}</span>
+                              <span className={`text-[10px] md:text-xs font-bold ${isPremium && !isSelected ? 'text-amber-600 dark:text-amber-400' : ''}`}>{benefit.name}</span>
                               {isSelected && <CheckCircle2 className="w-3 h-3 fill-current" />}
                             </div>
                           </button>
@@ -2188,6 +2371,61 @@ export default function App() {
                     </div>
                   </div>
                 )}
+              </div>
+
+              <div className={`p-3 border-t flex flex-col gap-3 transition-colors ${
+                theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-gray-50 border-black/5'
+              }`}>
+                <div className="flex flex-wrap gap-2">
+                  {gameState?.benefits.filter(b => {
+                    const me = gameState?.players.find(([id]) => id === playerId)?.[1];
+                    return !me?.benefits.includes(b.id) && !activeChatEmployee.personalBenefits?.includes(b.id);
+                  }).map(b => {
+                    const isPremium = b.id === 'pension' || b.id === 'dental';
+                    const isSelected = selectedPersonalBenefits.includes(b.id);
+                    return (
+                      <button
+                        key={b.id}
+                        onClick={() => {
+                          setSelectedPersonalBenefits(prev => 
+                            prev.includes(b.id) ? prev.filter(id => id !== b.id) : [...prev, b.id]
+                          );
+                        }}
+                        className={`text-[10px] px-3 py-1.5 rounded-full font-bold transition-colors border relative overflow-hidden ${
+                          isSelected
+                            ? 'bg-indigo-600 text-white border-indigo-600'
+                            : (isPremium 
+                                ? (theme === 'dark' ? 'bg-amber-500/10 text-amber-400 border-amber-500/50 hover:border-amber-500' : 'bg-amber-50 text-amber-600 border-amber-400 hover:border-amber-500')
+                                : (theme === 'dark' ? 'bg-black/40 text-gray-400 border-white/10 hover:border-white/30' : 'bg-white text-gray-600 border-black/10 hover:border-black/30'))
+                        }`}
+                      >
+                        {b.name} ({b.costPerEmployee}$/mois) {isPremium && !isSelected && '💎'}
+                      </button>
+                    );
+                  })}
+                  {gameState?.benefits.filter(b => {
+                    const me = gameState?.players.find(([id]) => id === playerId)?.[1];
+                    return !me?.benefits.includes(b.id) && !activeChatEmployee.personalBenefits?.includes(b.id);
+                  }).length === 0 && (
+                    <span className={`text-xs italic ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>
+                      Tous les avantages disponibles ont déjà été offerts.
+                    </span>
+                  )}
+                </div>
+                <div className="flex justify-end">
+                  <button 
+                    onClick={() => {
+                      if (selectedPersonalBenefits.length > 0) {
+                        safeSend({ type: 'OFFER_PERSONAL_BENEFITS', employeeId: activeChatEmployee.id, benefitIds: selectedPersonalBenefits });
+                        setSelectedPersonalBenefits([]);
+                      }
+                    }}
+                    disabled={selectedPersonalBenefits.length === 0}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600 text-white text-sm font-bold rounded-lg transition-colors"
+                  >
+                    Offrir les avantages sélectionnés
+                  </button>
+                </div>
               </div>
 
               <form onSubmit={sendChatMessage} className={`p-6 border-t flex gap-3 transition-colors ${
