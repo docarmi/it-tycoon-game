@@ -228,9 +228,17 @@ export default function App() {
   const [shownResignations, setShownResignations] = useState<Set<string>>(new Set());
   const [geminiApiKey, setGeminiApiKey] = useState<string>("");
   const [isInboxOpen, setIsInboxOpen] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
+  
+  const getBackendUrl = () => {
+    const envUrl = import.meta.env.VITE_BACKEND_URL;
+    if (envUrl) return envUrl.replace(/\/$/, "");
+    return "";
+  };
 
   useEffect(() => {
-    fetch('/api/config')
+    const backendUrl = getBackendUrl();
+    fetch(`${backendUrl}/api/config`)
       .then(res => res.json())
       .then(data => {
         if (data.geminiApiKey) setGeminiApiKey(data.geminiApiKey);
@@ -252,11 +260,26 @@ export default function App() {
     };
     window.addEventListener('error', handleError);
     
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${protocol}//${window.location.host}`);
+    const backendUrl = getBackendUrl();
+    let wsUrl: string;
+    
+    if (backendUrl) {
+      wsUrl = backendUrl.replace(/^http/, 'ws');
+    } else {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      wsUrl = `${protocol}//${window.location.host}`;
+    }
+    
+    const ws = new WebSocket(wsUrl);
 
-    ws.onopen = () => console.log('Connected to server');
-    ws.onerror = (event) => console.error('WebSocket error:', event);
+    ws.onopen = () => {
+      console.log('Connected to server');
+      setConnectionStatus('connected');
+    };
+    ws.onerror = (event) => {
+      console.error('WebSocket error:', event);
+      setConnectionStatus('error');
+    };
     ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
@@ -903,11 +926,25 @@ export default function App() {
               </div>
               <button 
                 onClick={joinGame}
-                disabled={!companyName.trim()}
+                disabled={!companyName.trim() || connectionStatus !== 'connected'}
                 className="w-full bg-black text-white py-4 rounded-xl font-bold hover:bg-gray-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-black/10"
               >
-                Démarrer l'aventure <TrendingUp className="w-5 h-5" />
+                {connectionStatus === 'connecting' ? (
+                  <>Connexion au serveur... <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /></>
+                ) : connectionStatus === 'error' ? (
+                  <>Erreur de connexion</>
+                ) : (
+                  <>Démarrer l'aventure <TrendingUp className="w-5 h-5" /></>
+                )}
               </button>
+              {connectionStatus === 'error' && (
+                <p className="text-[10px] text-red-500 font-bold text-center">
+                  Impossible de se connecter au serveur de jeu. 
+                  {window.location.hostname.includes('vercel') && !import.meta.env.VITE_BACKEND_URL && (
+                    " Assurez-vous d'avoir configuré VITE_BACKEND_URL sur Vercel."
+                  )}
+                </p>
+              )}
             </div>
             <p className="text-[10px] text-center text-gray-400 leading-relaxed">
               En démarrant, vous acceptez de relever le défi de la gestion de talents dans un marché compétitif.

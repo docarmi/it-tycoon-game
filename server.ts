@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 import { createServer as createViteServer } from "vite";
 import { WebSocketServer, WebSocket } from "ws";
 import http from "http";
@@ -250,6 +251,7 @@ for (let i = 0; i < 4; i++) {
 
 async function startServer() {
   const app = express();
+  app.use(cors());
   const server = http.createServer(app);
   server.on('error', (err) => {
     console.error('Server error:', err);
