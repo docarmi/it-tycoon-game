@@ -498,6 +498,19 @@ async function startServer() {
 
     currentWeek++;
     broadcastState();
+
+    // Broadcast week progression notification
+    const weekMsg = JSON.stringify({ 
+      type: "NOTIFICATION", 
+      data: { 
+        title: `Semaine ${currentWeek}`, 
+        text: `Le temps avance ! Nous sommes maintenant en semaine ${currentWeek}.`,
+        type: "info"
+      } 
+    });
+    wss.clients.forEach(client => {
+      if (client.readyState === WebSocket.OPEN) client.send(weekMsg);
+    });
   }
 
   function broadcastState() {
@@ -776,6 +789,20 @@ async function startServer() {
                 player.totalHired++;
                 candidates.splice(candidateIndex, 1);
                 broadcastState();
+                
+                // Broadcast hire notification to all
+                const hireMsg = JSON.stringify({ 
+                  type: "NOTIFICATION", 
+                  data: { 
+                    title: "Recrutement !", 
+                    text: `${candidate.name} a été recruté par ${player.companyName}.`,
+                    type: "success",
+                    candidateId: candidate.id
+                  } 
+                });
+                wss.clients.forEach(client => {
+                  if (client.readyState === WebSocket.OPEN) client.send(hireMsg);
+                });
               } else {
                 // Look for ghost employee
                 let ghostEmp: Employee | null = null;
@@ -810,6 +837,20 @@ async function startServer() {
                     week: currentWeek
                   });
                   broadcastState();
+
+                  // Broadcast hire notification to all
+                  const hireMsg = JSON.stringify({ 
+                    type: "NOTIFICATION", 
+                    data: { 
+                      title: "Débauchage !", 
+                      text: `${ghostEmp.name} a été débauché par ${player.companyName}.`,
+                      type: "success",
+                      candidateId: ghostEmp.id
+                    } 
+                  });
+                  wss.clients.forEach(client => {
+                    if (client.readyState === WebSocket.OPEN) client.send(hireMsg);
+                  });
                 }
               }
             }

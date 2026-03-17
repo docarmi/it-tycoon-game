@@ -7,6 +7,7 @@ import {
   TrendingDown, 
   Briefcase, 
   CheckCircle2, 
+  Info,
   XCircle,
   Trophy,
   UserPlus,
@@ -229,7 +230,16 @@ export default function App() {
   const [geminiApiKey, setGeminiApiKey] = useState<string>("");
   const [isInboxOpen, setIsInboxOpen] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
+  const [notifications, setNotifications] = useState<{id: string, title: string, text: string, type: 'success' | 'info' | 'warning'}[]>([]);
   
+  const addNotification = (title: string, text: string, type: 'success' | 'info' | 'warning' = 'info') => {
+    const id = Math.random().toString(36).substr(2, 9);
+    setNotifications(prev => [...prev, { id, title, text, type }]);
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }, 5000);
+  };
+
   const getBackendUrl = () => {
     const envUrl = import.meta.env.VITE_BACKEND_URL;
     if (envUrl) return envUrl.replace(/\/$/, "");
@@ -295,6 +305,14 @@ export default function App() {
           setIsJoined(true);
         } else if (message.type === 'UPDATE') {
           setGameState(message.data);
+        } else if (message.type === 'NOTIFICATION') {
+          addNotification(message.data.title, message.data.text, message.data.type);
+          
+          // If this was a hire notification and we were negotiating with this candidate, close it
+          if (message.data.candidateId && selectedCandidate?.id === message.data.candidateId) {
+            setSelectedCandidate(null);
+            setNegotiationResult(null);
+          }
         }
       } catch (e) {
         console.error("Failed to parse WebSocket message:", e, event.data);
@@ -822,7 +840,7 @@ export default function App() {
       });
 
       const result = parseAIResponse(response.text || "{}");
-      safeSend({ type: "SEND_CANDIDATE_CHAT", candidateId: selectedCandidate.id, sender: 'employee', text: result.text });
+      safeSend({ type: "SEND_CANDIDATE_CHAT", candidateId: selectedCandidate.id, sender: 'employee', text: result.text, companyName: me?.companyName });
       
       if (result.status === "ACCEPTED") {
         setNegotiationResult('ACCEPTED');
@@ -853,7 +871,7 @@ export default function App() {
       const errorMsg = error?.message?.includes("safety") 
         ? "Désolé, je ne peux pas répondre pour des raisons de sécurité."
         : "Désolé, j'ai eu un problème technique en traitant votre message. Pouvons-nous reprendre ?";
-      safeSend({ type: "SEND_CANDIDATE_CHAT", candidateId: selectedCandidate.id, sender: 'employee', text: errorMsg });
+      safeSend({ type: "SEND_CANDIDATE_CHAT", candidateId: selectedCandidate.id, sender: 'employee', text: errorMsg, companyName: me?.companyName });
     } finally {
       setIsWaitingForAI(false);
     }
@@ -1454,6 +1472,10 @@ export default function App() {
                           <div className="text-right">
                             <p className={`text-[10px] font-bold ${isActive ? (theme === 'dark' ? 'text-gray-600' : 'text-gray-400') : 'text-gray-500'}`}>Coût/Emp</p>
                             <p className={`font-mono text-xs ${isPremium && !isActive ? 'text-amber-600 dark:text-amber-400 font-bold' : ''}`}>{benefit.costPerEmployee} $</p>
+                            <div className="mt-1 pt-1 border-t border-current opacity-20">
+                              <p className="text-[8px] font-bold uppercase">Total Mensuel</p>
+                              <p className="font-mono text-[10px] font-bold">{(benefit.costPerEmployee * (me?.employees.length || 0)).toLocaleString()} $</p>
+                            </div>
                           </div>
                         </button>
                       );
@@ -2240,7 +2262,9 @@ export default function App() {
                 </div>
                 
                 <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 md:space-y-6">
-                  {(gameState?.candidates.find(c => c.id === selectedCandidate.id)?.chatHistory || []).map((msg, idx) => (
+                  {(gameState?.candidates.find(c => c.id === selectedCandidate.id)?.chatHistory || [])
+                    .filter(msg => msg.companyName === me?.companyName)
+                    .map((msg, idx) => (
                     msg.sender === 'system' ? (
                       <div key={idx} className="text-center text-xs text-gray-500 italic my-2">{msg.text}</div>
                     ) : (
@@ -2386,6 +2410,31 @@ export default function App() {
           </div>
         )}
       </AnimatePresence>
+      {/* Notifications */}
+      <div className="fixed top-24 right-4 z-[100] flex flex-col gap-3 pointer-events-none">
+        <AnimatePresence>
+          {notifications.map(n => (
+            <motion.div
+              key={n.id}
+              initial={{ opacity: 0, x: 50, scale: 0.9 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: 20, scale: 0.9 }}
+              className={`p-4 rounded-2xl shadow-2xl border flex items-start gap-3 w-72 pointer-events-auto ${
+                n.type === 'success' ? 'bg-emerald-500 border-emerald-400 text-white' :
+                n.type === 'warning' ? 'bg-amber-500 border-amber-400 text-white' :
+                'bg-hec-blue border-hec-blue/50 text-white'
+              }`}
+            >
+              {n.type === 'success' ? <CheckCircle2 className="w-5 h-5 flex-shrink-0" /> : <Info className="w-5 h-5 flex-shrink-0" />}
+              <div>
+                <p className="font-black text-xs uppercase tracking-widest">{n.title}</p>
+                <p className="text-xs opacity-90 leading-relaxed font-medium">{n.text}</p>
+              </div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
+
       {/* Chat Modal */}
       <AnimatePresence>
         {activeChatEmployee && (
